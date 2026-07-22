@@ -1,172 +1,212 @@
-# Founder Metrics Dashboard
+# Founder Revenue OS
 
-A single-file Streamlit app that turns a Google Sheet into a personal
-business-intelligence dashboard across all your ventures.
+A personal business operating system for consultants, freelancers, and
+solo founders — track every project from proposal to payment, log
+expenses, and see real-time revenue/profit analytics. Built with
+**Streamlit** + **Google Sheets** (no database to manage).
 
 ---
 
-## 1. What you get
+## 1. Project structure
 
 ```
-founder-metrics-dashboard/
-├── app.py                          # the whole app (single file, as spec'd)
-├── setup_sheets.py                 # one-time script to build the Sheet structure
+founder-revenue-os/
+├── app.py                      # Main dashboard (entry point)
 ├── requirements.txt
 ├── .streamlit/
-│   ├── config.toml                 # theme
-│   └── secrets.toml.example        # copy -> secrets.toml, fill in your keys
-└── README.md
+│   └── secrets.toml.example    # Rename to secrets.toml and fill in
+├── utils/
+│   ├── sheets.py                # Google Sheets connection + CRUD
+│   ├── calculations.py          # All derived metrics
+│   └── styling.py               # CSS + metric cards
+└── pages/
+    ├── 1_Projects.py
+    ├── 2_Payments.py
+    ├── 3_Expenses.py
+    ├── 4_Analytics.py
+    └── 5_Settings.py
 ```
+
+Streamlit auto-detects everything in `pages/` and builds the sidebar
+navigation for you — you don't need to register pages anywhere.
 
 ---
 
-## 2. Google Cloud setup (you said you already have a console account — good, start here)
+## 2. Google Cloud setup (one-time, ~10 minutes)
 
-### Step 1 — Create / select a project
-In the [Google Cloud Console](https://console.cloud.google.com/), create a new
-project (or reuse an existing one) — e.g. `founder-metrics-dashboard`.
+You need a **Google Cloud service account** — this is a "robot" account
+that the app uses to read/write your Sheet without you having to log in
+every time.
 
-### Step 2 — Enable two APIs
-In **APIs & Services → Library**, enable:
-- **Google Sheets API**
-- **Google Drive API**
-
-### Step 3 — Create a Service Account
-1. **APIs & Services → Credentials → Create Credentials → Service Account**
-2. Give it any name, e.g. `founder-metrics-bot`. No special roles needed.
-3. Open the service account you just created → **Keys → Add Key → Create new key → JSON**.
-4. This downloads a `.json` file — this is your only credential file. Keep it private.
-
-### Step 4 — Share your Google Sheet with the service account
-1. Create a new Google Sheet (any name — e.g. "Founder Metrics").
-2. Open the downloaded JSON file, copy the `client_email` value
-   (looks like `founder-metrics-bot@your-project.iam.gserviceaccount.com`).
-3. In the Google Sheet, click **Share** and paste that email in as an **Editor**.
-
-Without this share step, the app will authenticate fine but get a
-"permission denied" error reading the sheet.
+1. Go to https://console.cloud.google.com/ and create a new project
+   (or reuse an existing one).
+2. In the search bar, enable these two APIs:
+   - **Google Sheets API**
+   - **Google Drive API**
+3. Go to **APIs & Services → Credentials → Create Credentials → Service Account**.
+   - Give it any name, e.g. `revenue-os-bot`.
+   - Skip granting it project-level roles — not needed.
+4. Click into the service account you just created → **Keys** tab →
+   **Add Key → Create new key → JSON**. This downloads a `.json` file.
+   **Keep this file secret — it's the credential for your data.**
+5. Open the JSON file. You'll copy fields from it into `secrets.toml`
+   in step 4 below.
 
 ---
 
-## 3. Build the sheet structure automatically
+## 3. Create the Google Sheet
 
-Instead of manually creating tabs and headers, run the included script once:
+1. Create a new blank Google Sheet (sheets.new). Name it anything,
+   e.g. "Founder Revenue OS Data".
+2. Click **Share** → paste the service account's email address (looks
+   like `revenue-os-bot@your-project.iam.gserviceaccount.com` — find it
+   in the JSON file under `client_email`) → give it **Editor** access →
+   Send.
+3. Copy the Sheet's URL from your browser address bar — you'll need it
+   in the next step.
 
-```bash
-pip install gspread google-auth
-python setup_sheets.py --key path/to/your-service-account.json --sheet-url "https://docs.google.com/spreadsheets/d/YOUR_ID/edit"
-```
+**You do not need to create the worksheets/tabs yourself.** The app
+creates all four automatically (`Projects`, `Payments`, `Expenses`,
+`Settings`) the first time it runs, and seeds `Settings` with sensible
+default categories.
 
-This creates all 7 tabs with the correct headers:
+### Sheet schema reference
 
-| Tab | Columns |
+If you're curious what the app builds, or want to inspect/edit data
+directly in Sheets:
+
+**Projects**
+| Column | Notes |
 |---|---|
-| Overview | Business, Metric 1, Metric 2 |
-| BizTrack-OS | Month, Users, Revenue |
-| StaX360 | Month, Users, Revenue |
-| Research & Consulting | Month, Projects, Revenue |
-| Crea8it Studio | Month, Members, Onboarded |
-| Goals | Business, Metric, Current, Target |
-| Milestones | Date, Business, Milestone |
+| project_id | auto-generated, e.g. `PRJ-A1B2C3D4` |
+| client_name | |
+| project_title | |
+| service_category | from Settings |
+| project_value | number |
+| currency | from Settings |
+| start_date | YYYY-MM-DD |
+| due_date | YYYY-MM-DD |
+| project_status | Not Started / In Progress / Completed / On Hold / Cancelled |
+| payment_status | computed by the app — Unpaid / Partial / Paid |
+| acquisition_source | from Settings |
+| notes | |
+| created_at | timestamp |
 
-It's safe to re-run — it won't overwrite existing data, only adds
-missing tabs/headers.
+**Payments**
+| Column | Notes |
+|---|---|
+| payment_id | auto-generated, e.g. `PAY-A1B2C3D4` |
+| project_id | links to Projects |
+| payment_date | YYYY-MM-DD |
+| amount | number |
+| payment_method | Bank Transfer / PayPal / Wise / Stripe / Crypto / Cash / Other |
+| transaction_reference | free text |
+| notes | |
+| created_at | timestamp |
 
-**Data entry tips:**
-- `Month` values should be consistent, e.g. `2026-01`, `2026-02` (sorts correctly).
-- `Date` in Milestones can be any parseable date, e.g. `2026-03-14`.
-- Numbers should be plain (no currency symbols, no commas) — the app formats
-  currency for you based on the Settings page.
+**Expenses**
+| Column | Notes |
+|---|---|
+| expense_id | auto-generated, e.g. `EXP-A1B2C3D4` |
+| expense_date | YYYY-MM-DD |
+| category | from Settings |
+| amount | number |
+| currency | from Settings |
+| description | |
+| created_at | timestamp |
+
+**Settings** (key-value list, editable from the app's Settings page)
+| Column | Notes |
+|---|---|
+| setting_type | service_category / currency / expense_category / acquisition_source |
+| value | the option text |
 
 ---
 
-## 4. Configure secrets (local development)
+## 4. Configure secrets
 
-```bash
-cp .streamlit/secrets.toml.example .streamlit/secrets.toml
-```
-
-Open `.streamlit/secrets.toml` and fill in:
-- `general.sheet_url` — the full URL of your Google Sheet
-- `admin.password` — any password you choose; it gates the **Add Entry** tab
-  so only you can log new numbers (viewers can still see every dashboard)
-- `gcp_service_account.*` — copy every field straight out of your downloaded JSON key
-  (the `private_key` field keeps its `\n` characters as literal `\n` — don't
-  reformat it)
-
-> **Note:** the app now writes to the sheet as well as reading it (so you can
-> log entries from the Add Entry tab), which is why the service account needs
-> **Editor** access in the Share step above, not just Viewer.
-
-**Never commit `secrets.toml` to git.** Add this to `.gitignore`:
-```
-.streamlit/secrets.toml
-```
+1. Rename `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml`.
+2. From the downloaded service account JSON, copy these fields into the
+   matching keys in `secrets.toml`:
+   - `project_id`, `private_key_id`, `private_key`, `client_email`,
+     `client_id`, `client_x509_cert_url`
+   - **Important:** the `private_key` must keep its `\n` characters
+     exactly as they appear in the JSON — don't reformat it.
+3. Set `app_config.sheet_url` to the full URL of the Sheet you created
+   in step 3.
+4. Set `app_config.app_password` to any password you'll use to log into
+   the app (this is a simple shared-password gate, not full auth — see
+   "Security note" below).
 
 ---
 
 ## 5. Run locally
 
 ```bash
+cd founder-revenue-os
+python3 -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Open the local URL Streamlit prints (usually `http://localhost:8501`).
+Open the URL Streamlit prints (usually `http://localhost:8501`), enter
+your `app_password`, and you're in.
 
 ---
 
-## 6. Deploy to Streamlit Cloud
+## 6. Deploy to Streamlit Community Cloud
 
-1. Push this folder to a GitHub repo (make sure `secrets.toml` is **not** included — only `secrets.toml.example`).
-2. Go to [share.streamlit.io](https://share.streamlit.io/) → **New app** → pick your repo/branch → main file path `app.py`.
-3. Before/after first deploy, go to **App → Settings → Secrets** and paste in the
-   full contents of your local `secrets.toml` (same TOML format).
-4. Deploy. Every time you edit rows in the Google Sheet, the app picks up
-   changes within 5 minutes automatically (cache TTL), or instantly via the
-   **Refresh Data** button in the sidebar / Settings page.
+1. Push this folder to a **GitHub repo** (public or private — Streamlit
+   Cloud can access private repos too).
 
----
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial commit — Founder Revenue OS"
+   git branch -M main
+   git remote add origin https://github.com/<you>/founder-revenue-os.git
+   git push -u origin main
+   ```
 
-## 7. How the app is organized
+   **Do NOT commit `secrets.toml`** — it contains your private key.
+   Add this to a `.gitignore`:
+   ```
+   .streamlit/secrets.toml
+   venv/
+   __pycache__/
+   ```
 
-Navigation is now a **row of tabs across the top of the page** instead of a
-sidebar menu — every section is one click away, all on the same page:
-
-- **🏠 Main** — ecosystem-wide KPIs, revenue trend, business comparison, recent milestones, goal progress.
-- **Per-business tabs** (BizTrack-OS, StaX360, Research & Consulting, Crea8it Studio) — KPI cards, monthly trend charts, historical data table.
-- **💰 Revenue** — lifetime/monthly revenue, revenue by business, growth, best month, line/bar/pie charts.
-- **🔎 Analytics** — highest revenue business, fastest growing business, revenue contribution, user growth, comparison table.
-- **🎯 Goals** — progress bars per goal (Current vs Target).
-- **🏁 Milestones** — filterable timeline.
-- **📝 Report** — pick a month, get an auto-generated summary + downloadable Markdown report.
-- **✍️ Add Entry** — password-gated. Log what a business made *today*; it adds
-  on top of that month's running total (creating the month's row the first
-  time you log it) and also drops a row in a new **Daily Log** sheet tab, so
-  you keep a full day-by-day history even though the dashboards themselves
-  stay monthly.
-- **⚙️ Settings** — currency, logo upload (session-only), connected sheet URL (read-only), refresh/cache clear.
-
-The sidebar is now just branding + a global refresh button.
-
-All viewing data comes from the Google Sheet — no code changes are needed to
-update any chart. The one exception is the Add Entry tab, which *writes*
-back to the Sheet for you instead of you editing rows by hand.
+2. Go to https://share.streamlit.io/ → **New app** → connect your GitHub
+   repo → set the main file path to `app.py`.
+3. Before deploying (or right after, via **Settings → Secrets**), paste
+   the entire contents of your local `secrets.toml` into the app's
+   **Secrets** box in the Streamlit Cloud dashboard.
+4. Deploy. First load will take ~30-60 seconds while it installs
+   dependencies and bootstraps your Sheet's worksheets.
 
 ---
 
-## 8. Extending toward the multi-user vision
+## 7. Security note
 
-When you're ready to evolve this into a multi-user product (per the spec's
-long-term vision), the natural next steps are:
-- Replace the single `secrets.toml` sheet URL with a per-user sheet URL stored
-  in a lightweight user database (e.g. Supabase, which you're already using
-  on other projects).
-- Add simple auth (Streamlit's `st.login` / an external auth provider) so each
-  user only sees their own connected sheet.
-- Turn `setup_sheets.py`'s logic into an in-app "Connect your Google Sheet"
-  onboarding flow that provisions the tabs for a newly connected sheet.
+The password gate in `app.py` is intentionally simple — it's meant to
+keep this off Google's index and away from casual visitors, not to be
+bank-grade auth. Since this is a single-user tool by design (per the
+spec), that's an acceptable tradeoff. If you later add multi-user
+support, replace `check_password()` with proper per-user auth (e.g.
+Streamlit's built-in OIDC support, or Supabase Auth) — that's also the
+natural point to move off Google Sheets and onto a real database, since
+concurrent multi-user writes are where Sheets starts to strain.
 
-None of the current `app.py` logic needs to change for this — it already
-reads the sheet URL from a single config source, which just needs to become
-per-user instead of global.
+---
+
+## 8. Extending it later
+
+The code is structured so each future enhancement has an obvious home:
+
+- **Invoice/PDF generation** → new page, reuse `enrich_projects()` for
+  the numbers, use a PDF library to render.
+- **Tax estimation / forecasting** → new functions in `calculations.py`.
+- **Client CRM** → new `Clients` worksheet + schema entry in `sheets.py`.
+- **Multi-business support** → add a `business` column to each sheet
+  and filter by it everywhere `read_sheet()` is called.
