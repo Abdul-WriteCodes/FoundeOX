@@ -1,9 +1,20 @@
 # Founder Revenue OS
 
-A personal business operating system for consultants, freelancers, and
-solo founders — track every project from proposal to payment, log
-expenses, and see real-time revenue/profit analytics. Built with
-**Streamlit** + **Google Sheets** (no database to manage).
+Your personal business operating system for tracking revenue across
+**Research & Consulting** work and **every SaaS product you're
+shipping**, in one place. Built with **Streamlit** + **Google Sheets**
+(no database to manage).
+
+Two different revenue shapes, tracked the way each actually works:
+- **Research & Consulting** — client engagements with a project value
+  that gets paid down over time (Projects + Payments).
+- **Each SaaS product** — its own revenue stream, logged either as a
+  quick monthly total or as individual transactions (or both — see
+  "How SaaS revenue reconciliation works" below).
+
+Everything rolls up into one combined dashboard, with a per-stream
+breakdown so you can see Research & Consulting next to BizTrack-OS next
+to StaX360 Suite, etc. — separately and combined.
 
 ---
 
@@ -11,20 +22,21 @@ expenses, and see real-time revenue/profit analytics. Built with
 
 ```
 founder-revenue-os/
-├── app.py                      # Main dashboard (entry point)
+├── app.py                          # Main dashboard (entry point) — combined view
 ├── requirements.txt
 ├── .streamlit/
-│   └── secrets.toml.example    # Rename to secrets.toml and fill in
+│   └── secrets.toml.example        # Rename to secrets.toml and fill in
 ├── utils/
-│   ├── sheets.py                # Google Sheets connection + CRUD
-│   ├── calculations.py          # All derived metrics
-│   └── styling.py               # CSS + metric cards
+│   ├── sheets.py                    # Google Sheets connection + CRUD
+│   ├── calculations.py              # All derived metrics + SaaS reconciliation
+│   └── styling.py                   # CSS + metric cards
 └── pages/
-    ├── 1_Projects.py
-    ├── 2_Payments.py
-    ├── 3_Expenses.py
-    ├── 4_Analytics.py
-    └── 5_Settings.py
+    ├── 1_Consulting_Projects.py     # Research & Consulting engagements
+    ├── 2_Consulting_Payments.py     # Payments against those engagements
+    ├── 3_SaaS_Revenue.py            # Monthly totals + transactions, per product
+    ├── 4_Expenses.py                # Expenses, optionally tagged to a stream
+    ├── 5_Analytics.py               # Combined + per-stream analytics
+    └── 6_Settings.py                # Manage your product list & other dropdowns
 ```
 
 Streamlit auto-detects everything in `pages/` and builds the sidebar
@@ -92,7 +104,7 @@ directly in Sheets:
 | notes | |
 | created_at | timestamp |
 
-**Payments**
+**Payments** (against Consulting Projects)
 | Column | Notes |
 |---|---|
 | payment_id | auto-generated, e.g. `PAY-A1B2C3D4` |
@@ -104,12 +116,37 @@ directly in Sheets:
 | notes | |
 | created_at | timestamp |
 
+**SaaSMonthly** (one row per product per month — a quick running total)
+| Column | Notes |
+|---|---|
+| entry_id | auto-generated, e.g. `SM-A1B2C3D4` |
+| product | from Settings, e.g. `BizTrack-OS` |
+| month | YYYY-MM |
+| amount | number — the whole month's revenue for that product |
+| currency | from Settings |
+| notes | |
+| created_at | timestamp |
+
+**SaaSTransactions** (individual sales/subscription payments)
+| Column | Notes |
+|---|---|
+| transaction_id | auto-generated, e.g. `TXN-A1B2C3D4` |
+| product | from Settings |
+| date | YYYY-MM-DD |
+| amount | number |
+| currency | from Settings |
+| customer | optional, free text |
+| payment_method | Stripe / PayPal / Paddle / LemonSqueezy / Bank Transfer / Crypto / Other |
+| notes | |
+| created_at | timestamp |
+
 **Expenses**
 | Column | Notes |
 |---|---|
 | expense_id | auto-generated, e.g. `EXP-A1B2C3D4` |
 | expense_date | YYYY-MM-DD |
 | category | from Settings |
+| stream | optional — "Research & Consulting", a product name, or "General/Overhead" |
 | amount | number |
 | currency | from Settings |
 | description | |
@@ -118,8 +155,26 @@ directly in Sheets:
 **Settings** (key-value list, editable from the app's Settings page)
 | Column | Notes |
 |---|---|
-| setting_type | service_category / currency / expense_category / acquisition_source |
+| setting_type | product / service_category / currency / expense_category / acquisition_source |
 | value | the option text |
+
+---
+
+## How SaaS revenue reconciliation works
+
+For a given product and month, the app picks **one** number so nothing
+double-counts:
+
+- If you've saved a **monthly total** for that product+month, that
+  number is used — full stop.
+- If you haven't, the app **sums up any individual transactions** you
+  logged for that product in that month.
+
+This means you can mix approaches freely across months or products —
+quick monthly totals for a product you don't want to itemize, individual
+transactions for one where you want customer-level detail — and the
+dashboard always reflects one clean number per product per month, never
+both added together.
 
 ---
 
