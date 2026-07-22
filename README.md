@@ -88,9 +88,15 @@ cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 
 Open `.streamlit/secrets.toml` and fill in:
 - `general.sheet_url` — the full URL of your Google Sheet
+- `admin.password` — any password you choose; it gates the **Add Entry** tab
+  so only you can log new numbers (viewers can still see every dashboard)
 - `gcp_service_account.*` — copy every field straight out of your downloaded JSON key
   (the `private_key` field keeps its `\n` characters as literal `\n` — don't
   reformat it)
+
+> **Note:** the app now writes to the sheet as well as reading it (so you can
+> log entries from the Add Entry tab), which is why the service account needs
+> **Editor** access in the Share step above, not just Viewer.
 
 **Never commit `secrets.toml` to git.** Add this to `.gitignore`:
 ```
@@ -124,17 +130,28 @@ Open the local URL Streamlit prints (usually `http://localhost:8501`).
 
 ## 7. How the app is organized
 
-- **Main Dashboard** — ecosystem-wide KPIs, revenue trend, business comparison, recent milestones, goal progress.
-- **Per-business pages** (BizTrack-OS, StaX360, Research & Consulting, Crea8it Studio) — KPI cards, monthly trend charts, historical data table.
-- **Revenue Dashboard** — lifetime/monthly revenue, revenue by business, growth, best month, line/bar/pie charts.
-- **Analytics Dashboard** — highest revenue business, fastest growing business, revenue contribution, user growth, comparison table.
-- **Goals Dashboard** — progress bars per goal (Current vs Target).
-- **Milestones** — filterable timeline.
-- **Monthly Report** — pick a month, get an auto-generated summary + downloadable Markdown report.
-- **Settings** — currency, logo upload (session-only), connected sheet URL (read-only), refresh/cache clear.
+Navigation is now a **row of tabs across the top of the page** instead of a
+sidebar menu — every section is one click away, all on the same page:
 
-All data comes from the Google Sheet — no code changes are needed to update
-any chart; just edit rows in the Sheet.
+- **🏠 Main** — ecosystem-wide KPIs, revenue trend, business comparison, recent milestones, goal progress.
+- **Per-business tabs** (BizTrack-OS, StaX360, Research & Consulting, Crea8it Studio) — KPI cards, monthly trend charts, historical data table.
+- **💰 Revenue** — lifetime/monthly revenue, revenue by business, growth, best month, line/bar/pie charts.
+- **🔎 Analytics** — highest revenue business, fastest growing business, revenue contribution, user growth, comparison table.
+- **🎯 Goals** — progress bars per goal (Current vs Target).
+- **🏁 Milestones** — filterable timeline.
+- **📝 Report** — pick a month, get an auto-generated summary + downloadable Markdown report.
+- **✍️ Add Entry** — password-gated. Log what a business made *today*; it adds
+  on top of that month's running total (creating the month's row the first
+  time you log it) and also drops a row in a new **Daily Log** sheet tab, so
+  you keep a full day-by-day history even though the dashboards themselves
+  stay monthly.
+- **⚙️ Settings** — currency, logo upload (session-only), connected sheet URL (read-only), refresh/cache clear.
+
+The sidebar is now just branding + a global refresh button.
+
+All viewing data comes from the Google Sheet — no code changes are needed to
+update any chart. The one exception is the Add Entry tab, which *writes*
+back to the Sheet for you instead of you editing rows by hand.
 
 ---
 

@@ -27,9 +27,12 @@ st.set_page_config(
 )
 
 SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets.readonly",
-    "https://www.googleapis.com/auth/drive.readonly",
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
 ]
+
+# Date format used for the "Month" column across all business sheets.
+MONTH_FMT = "%Y-%m"
 
 # Business -> (icon, sheet tab name, [metric1, metric2])
 BUSINESSES = {
@@ -49,6 +52,14 @@ def get_gspread_client():
     creds_dict = dict(st.secrets["gcp_service_account"])
     creds = Credentials.from_service_account_info(creds_dict, scopes=SCOPES)
     return gspread.authorize(creds)
+
+
+@st.cache_resource(show_spinner=False)
+def get_spreadsheet():
+    """The open Spreadsheet handle — used for writes (load_worksheet stays read-focused below)."""
+    client = get_gspread_client()
+    sheet_url = st.secrets["general"]["sheet_url"]
+    return client.open_by_url(sheet_url)
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -129,6 +140,104 @@ def growth_badge(delta):
         return ""
     arrow = "▲" if delta >= 0 else "▼"
     return f"{arrow} {abs(delta):.1f}%"
+
+
+# =========================================================================
+# ADMIN LOGIN (gates the "Add Entry" tab only)
+# =========================================================================
+def get_admin_password():
+    try:
+        return st.secrets["admin"]["password"]
+    except Exception:
+        return None
+
+
+def is_admin() -> bool:
+    return st.session_state.get("is_admin", False)
+
+
+def admin_login_form() -> bool:
+    """Renders a password gate. Returns True once logged in this session."""
+    if is_admin():
+        return True
+
+    real_password = get_admin_password()
+    if not real_password:
+        st.warning(
+            "No admin password configured yet. Add it to `secrets.toml` under "
+            "`[admin]` -> `password = \"yourpassword\"` to enable this tab."
+        )
+        return False
+
+    st.subheader("🔒 Admin login")
+    st.caption("This tab is for you only — logging today's numbers.")
+    pwd = st.text_input("Password", type="password", key="admin_pwd_input")
+    if st.button("Log in", key="admin_login_btn"):
+        if pwd == real_password:
+            st.session_state["is_admin"] = True
+            st.rerun()
+        else:
+            st.error("Wrong password.")
+    return False
+
+
+def admin_logout_button():
+    if is_admin() and st.button("Log out", key="admin_logout_btn"):
+        st.session_state["is_admin"] = False
+        st.rerun()
+
+
+# =========================================================================
+# DATA ENTRY (writes back to Google Sheets)
+# =========================================================================
+def _month_row_index(ws, month_str: str):
+    """1-based row index of an existing Month cell in column A, or None."""
+    try:
+        cell = ws.find(month_str, in_column=1)
+        return cell.row
+    except gspread.exceptions.CellNotFound:
+        return None
+
+
+def add_business_entry(business: str, entry_date, m1_value: float, m2_value: float, note: str = ""):
+    """
+    Logs a same-day entry for a business:
+      1) appends a row to the 'Daily Log' tab (full-resolution history)
+      2) adds the entered values on top of that month's row in the business's
+         own sheet (creating the month's row if it doesn't exist yet)
+    Existing monthly dashboards need no changes — they just see a bigger number
+    for the current month next time they load.
+    Returns (ok: bool, message: str).
+    """
+    cfg = BUSINESSES[business]
+    m1_label, m2_label = cfg["metrics"]
+    month_str = entry_date.strftime(MONTH_FMT)
+    date_str = entry_date.strftime("%Y-%m-%d")
+
+    try:
+        sh = get_spreadsheet()
+
+        ws = sh.worksheet(cfg["sheet"])
+        row_idx = _month_row_index(ws, month_str)
+        if row_idx:
+            existing = ws.row_values(row_idx)
+            existing_m1 = float(existing[1]) if len(existing) > 1 and existing[1] else 0.0
+            existing_m2 = float(existing[2]) if len(existing) > 2 and existing[2] else 0.0
+            ws.update(f"A{row_idx}:C{row_idx}", [[month_str, existing_m1 + m1_value, existing_m2 + m2_value]])
+        else:
+            ws.append_row([month_str, m1_value, m2_value])
+
+        try:
+            log_ws = sh.worksheet("Daily Log")
+        except gspread.exceptions.WorksheetNotFound:
+            log_ws = sh.add_worksheet(title="Daily Log", rows=1000, cols=6)
+            log_ws.update("A1", [["Date", "Business", m1_label, m2_label, "Note"]])
+        log_ws.append_row([date_str, business, m1_value, m2_value, note])
+
+        clear_all_caches()
+        return True, f"Logged {business} — {month_str}: +{m1_value:,.0f} {m1_label}, +{m2_value:,.0f} {m2_label}"
+    except Exception as e:
+        return False, f"Couldn't save to Google Sheets: {e}"
 
 
 # =========================================================================
@@ -564,6 +673,62 @@ def page_monthly_report():
 
 
 # =========================================================================
+# PAGE: ADD ENTRY (admin data entry)
+# =========================================================================
+def page_add_entry():
+    st.title("✍️ Add Entry")
+    st.caption("Log what you made today — it rolls straight into the dashboards.")
+
+    if not admin_login_form():
+        return
+
+    admin_logout_button()
+    st.divider()
+
+    business = st.selectbox("Business", options=list(BUSINESSES.keys()), key="entry_business")
+    cfg = BUSINESSES[business]
+    m1_label, m2_label = cfg["metrics"]
+
+    entry_date = st.date_input("Date", value=datetime.today(), key="entry_date")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        m1_value = st.number_input(f"{m1_label} today", min_value=0.0, step=1.0, key="entry_m1")
+    with col2:
+        m2_value = st.number_input(f"{m2_label} today", min_value=0.0, step=1.0, key="entry_m2")
+
+    note = st.text_input("Note (optional)", key="entry_note", placeholder="e.g. launched new pricing tier")
+
+    st.caption(
+        f"This adds on top of whatever's already logged for {entry_date.strftime(MONTH_FMT)} — "
+        "it doesn't overwrite the month, so you can log every day and the month total builds up on its own."
+    )
+
+    if st.button("Save entry", type="primary", key="entry_submit"):
+        if m1_value == 0 and m2_value == 0:
+            st.warning("Enter at least one non-zero value.")
+        else:
+            ok, msg = add_business_entry(business, entry_date, m1_value, m2_value, note)
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)
+
+    st.divider()
+    st.subheader("Recent entries")
+    try:
+        sh = get_spreadsheet()
+        log_ws = sh.worksheet("Daily Log")
+        log_df = pd.DataFrame(log_ws.get_all_records())
+        if not log_df.empty:
+            st.dataframe(log_df.tail(15).iloc[::-1], use_container_width=True, hide_index=True)
+        else:
+            st.caption("No entries logged yet.")
+    except Exception:
+        st.caption("No entries logged yet.")
+
+
+# =========================================================================
 # PAGE: SETTINGS
 # =========================================================================
 def page_settings():
@@ -615,55 +780,62 @@ def page_settings():
 # =========================================================================
 # NAVIGATION / ROUTER
 # =========================================================================
-def sidebar_nav():
+def sidebar_chrome():
+    """Slim sidebar — branding + a global refresh. Navigation itself lives in the tabs."""
     if st.session_state.get("logo_bytes"):
         st.sidebar.image(st.session_state["logo_bytes"], width=120)
     st.sidebar.title("📊 Founder Metrics")
     st.sidebar.caption("Measure what you build.")
-
-    business_pages = {f"{cfg['icon']} {biz}": biz for biz, cfg in BUSINESSES.items()}
-
-    section = st.sidebar.radio(
-        "Navigate",
-        options=[
-            "🏠 Main Dashboard",
-            *business_pages.keys(),
-            "💰 Revenue Dashboard",
-            "🔎 Analytics Dashboard",
-            "🎯 Goals Dashboard",
-            "🏁 Milestones",
-            "📝 Monthly Report",
-            "⚙️ Settings",
-        ],
-        label_visibility="collapsed",
-    )
 
     st.sidebar.divider()
     if st.sidebar.button("🔄 Refresh Data", use_container_width=True):
         clear_all_caches()
         st.sidebar.success("Refreshed.")
 
-    return section, business_pages
+    if is_admin():
+        st.sidebar.divider()
+        st.sidebar.caption("🔓 Logged in as admin")
 
 
 def main():
-    section, business_pages = sidebar_nav()
+    sidebar_chrome()
 
-    if section == "🏠 Main Dashboard":
+    tab_titles = [
+        "🏠 Main",
+        *[f"{cfg['icon']} {biz}" for biz, cfg in BUSINESSES.items()],
+        "💰 Revenue",
+        "🔎 Analytics",
+        "🎯 Goals",
+        "🏁 Milestones",
+        "📝 Report",
+        "✍️ Add Entry",
+        "⚙️ Settings",
+    ]
+    tabs = st.tabs(tab_titles)
+
+    with tabs[0]:
         page_main_dashboard()
-    elif section in business_pages:
-        page_business(business_pages[section])
-    elif section == "💰 Revenue Dashboard":
+
+    biz_list = list(BUSINESSES.keys())
+    offset = 1
+    for i, biz in enumerate(biz_list):
+        with tabs[offset + i]:
+            page_business(biz)
+    offset += len(biz_list)
+
+    with tabs[offset]:
         page_revenue()
-    elif section == "🔎 Analytics Dashboard":
+    with tabs[offset + 1]:
         page_analytics()
-    elif section == "🎯 Goals Dashboard":
+    with tabs[offset + 2]:
         page_goals()
-    elif section == "🏁 Milestones":
+    with tabs[offset + 3]:
         page_milestones()
-    elif section == "📝 Monthly Report":
+    with tabs[offset + 4]:
         page_monthly_report()
-    elif section == "⚙️ Settings":
+    with tabs[offset + 5]:
+        page_add_entry()
+    with tabs[offset + 6]:
         page_settings()
 
 

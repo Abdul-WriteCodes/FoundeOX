@@ -35,6 +35,7 @@ SHEET_SCHEMA = {
     "Crea8it Studio": ["Month", "Members", "Onboarded"],
     "Goals": ["Business", "Metric", "Current", "Target"],
     "Milestones": ["Date", "Business", "Milestone"],
+    "Daily Log": ["Date", "Business", "Metric 1 Value", "Metric 2 Value", "Note"],
 }
 
 OVERVIEW_ROWS = [
