@@ -1,15 +1,18 @@
 """
 Google Sheets data layer for Founder Revenue OS.
 
-This module owns:
-- Authenticating to Google Sheets via a service account
-- Creating the four required worksheets (with headers) if they don't exist
-- Reading each worksheet into a pandas DataFrame
-- Appending / updating / deleting rows by ID
-
-Every other part of the app should go through this module rather than
-calling gspread directly, so there is exactly one place that knows about
-sheet layout.
+Revenue model:
+- "Research & Consulting" is tracked as client Projects + Payments
+  (an engagement with a value that gets paid down over time).
+- Each SaaS product is a "stream" tracked two ways that can coexist:
+    - SaaSMonthly: one quick manual total per product per month
+    - SaaSTransactions: individual sales/subscription payments
+  For any product+month, if a manual monthly total exists it is treated
+  as authoritative for that month (so you don't double count); otherwise
+  the month's revenue is the sum of that month's logged transactions.
+- Expenses can optionally be tagged to a stream (a product, "Research &
+  Consulting", or "General/Overhead") so per-stream profit is possible,
+  but an untagged/"General" expense just counts against the combined total.
 """
 
 import uuid
@@ -25,8 +28,9 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
-# Column order is the contract for each worksheet. If you add a column,
-# add it here AND it will be auto-migrated into existing sheets on next run.
+CONSULTING_STREAM = "Research & Consulting"
+GENERAL_STREAM = "General/Overhead"
+
 SHEET_SCHEMAS = {
     "Projects": [
         "project_id", "client_name", "project_title", "service_category",
@@ -38,9 +42,16 @@ SHEET_SCHEMAS = {
         "payment_id", "project_id", "payment_date", "amount",
         "payment_method", "transaction_reference", "notes", "created_at",
     ],
+    "SaaSMonthly": [
+        "entry_id", "product", "month", "amount", "currency", "notes", "created_at",
+    ],
+    "SaaSTransactions": [
+        "transaction_id", "product", "date", "amount", "currency",
+        "customer", "payment_method", "notes", "created_at",
+    ],
     "Expenses": [
-        "expense_id", "expense_date", "category", "amount", "currency",
-        "description", "created_at",
+        "expense_id", "expense_date", "category", "stream", "amount",
+        "currency", "description", "created_at",
     ],
     "Settings": [
         "setting_type", "value",
@@ -49,10 +60,8 @@ SHEET_SCHEMAS = {
 
 DEFAULT_SETTINGS = [
     ("service_category", "Consulting"),
-    ("service_category", "Web Development"),
-    ("service_category", "Data Analysis"),
-    ("service_category", "Content Writing"),
-    ("service_category", "Design"),
+    ("service_category", "Research"),
+    ("service_category", "Advisory"),
     ("service_category", "Other"),
     ("currency", "USD"),
     ("currency", "NGN"),
@@ -72,12 +81,18 @@ DEFAULT_SETTINGS = [
     ("acquisition_source", "Cold Outreach"),
     ("acquisition_source", "Inbound/Website"),
     ("acquisition_source", "Other"),
+    ("product", "BizTrack-OS"),
+    ("product", "StaX360 Suite"),
+    ("product", "Kopt-OS"),
+    ("product", "Crea8it Labs"),
+    ("product", "Agent43"),
+    ("product", "EmpiricX"),
+    ("product", "Other"),
 ]
 
 
 @st.cache_resource(show_spinner=False)
 def get_client():
-    """Authenticate once per session and cache the gspread client."""
     creds = Credentials.from_service_account_info(
         st.secrets["gcp_service_account"], scopes=SCOPES
     )
@@ -92,9 +107,8 @@ def get_spreadsheet():
 
 
 def bootstrap_sheets():
-    """Create any missing worksheets with correct headers, and seed
-    Settings with sensible defaults on first run. Safe to call every
-    time the app starts - it's a no-op if everything already exists."""
+    """Create any missing worksheets with correct headers, migrate missing
+    columns into existing sheets, and seed Settings defaults on first run."""
     ss = get_spreadsheet()
     existing_titles = [ws.title for ws in ss.worksheets()]
 
@@ -108,17 +122,20 @@ def bootstrap_sheets():
             if not current_headers:
                 ws.append_row(headers)
             else:
-                # migrate: add any missing columns at the end
                 missing = [h for h in headers if h not in current_headers]
                 if missing:
                     new_headers = current_headers + missing
                     ws.update("A1", [new_headers])
 
-    # seed default settings if the Settings sheet is empty of rows
     settings_ws = ss.worksheet("Settings")
     rows = settings_ws.get_all_records()
     if not rows:
         settings_ws.append_rows([list(pair) for pair in DEFAULT_SETTINGS])
+    else:
+        existing_pairs = {(r["setting_type"], r["value"]) for r in rows}
+        missing_defaults = [p for p in DEFAULT_SETTINGS if p not in existing_pairs and p[0] == "product"]
+        if missing_defaults and not any(r["setting_type"] == "product" for r in rows):
+            settings_ws.append_rows([list(p) for p in missing_defaults])
 
 
 def _worksheet(name):
@@ -126,8 +143,6 @@ def _worksheet(name):
 
 
 def read_sheet(name: str) -> pd.DataFrame:
-    """Read a worksheet into a DataFrame with the correct column order,
-    even if the sheet is empty."""
     ws = _worksheet(name)
     records = ws.get_all_records()
     df = pd.DataFrame(records)
@@ -152,8 +167,6 @@ def append_row(sheet_name: str, row: dict):
 
 
 def update_row(sheet_name: str, id_col: str, id_value: str, updates: dict):
-    """Find the row where id_col == id_value and overwrite the given
-    fields in place."""
     ws = _worksheet(sheet_name)
     schema = SHEET_SCHEMAS[sheet_name]
     cell = ws.find(id_value, in_column=schema.index(id_col) + 1)
@@ -176,8 +189,6 @@ def delete_row(sheet_name: str, id_col: str, id_value: str):
 
 
 def delete_rows_where(sheet_name: str, match_col: str, match_value: str):
-    """Delete every row where match_col == match_value (e.g. all payments
-    for a deleted project). Deletes bottom-up so row indices stay valid."""
     ws = _worksheet(sheet_name)
     schema = SHEET_SCHEMAS[sheet_name]
     col_idx = schema.index(match_col) + 1
@@ -187,7 +198,7 @@ def delete_rows_where(sheet_name: str, match_col: str, match_value: str):
         ws.delete_rows(row_num)
 
 
-# ---- convenience wrappers used by the pages ----
+# ---- convenience wrappers ----
 
 def create_project(data: dict) -> str:
     pid = _new_id("PRJ")
@@ -203,6 +214,35 @@ def create_payment(data: dict) -> str:
     data["created_at"] = datetime.now().isoformat(timespec="seconds")
     append_row("Payments", data)
     return payid
+
+
+def upsert_saas_monthly(product: str, month: str, amount: float, currency: str, notes: str) -> str:
+    """One row per product+month. If a row already exists for this
+    product+month, overwrite its amount/notes instead of creating a
+    duplicate."""
+    existing = read_sheet("SaaSMonthly")
+    match = existing[(existing["product"] == product) & (existing["month"] == month)]
+    if not match.empty:
+        entry_id = match.iloc[0]["entry_id"]
+        update_row("SaaSMonthly", "entry_id", entry_id, {
+            "amount": amount, "currency": currency, "notes": notes,
+        })
+        return entry_id
+    entry_id = _new_id("SM")
+    append_row("SaaSMonthly", {
+        "entry_id": entry_id, "product": product, "month": month,
+        "amount": amount, "currency": currency, "notes": notes,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+    })
+    return entry_id
+
+
+def create_saas_transaction(data: dict) -> str:
+    tid = _new_id("TXN")
+    data["transaction_id"] = tid
+    data["created_at"] = datetime.now().isoformat(timespec="seconds")
+    append_row("SaaSTransactions", data)
+    return tid
 
 
 def create_expense(data: dict) -> str:
@@ -222,5 +262,5 @@ def delete_setting(setting_type: str, value: str):
     records = ws.get_all_records()
     for i, r in enumerate(records):
         if r["setting_type"] == setting_type and r["value"] == value:
-            ws.delete_rows(i + 2)  # +2: header row + 1-indexing
+            ws.delete_rows(i + 2)
             break
