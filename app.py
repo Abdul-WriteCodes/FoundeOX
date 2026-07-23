@@ -1,369 +1,157 @@
-"""
-Visual identity, modeled on the Bayantx360 Suite AdminHub look: a dark,
-glassy fintech-SaaS theme rather than anything playful - restrained
-surfaces, one teal/violet accent pairing, Outfit for headings/UI text,
-JetBrains Mono for labels and data-adjacent text. Applied globally via
-one injected <style> block so every page picks it up through
-inject_css().
-
-Function names (hero_title, graffiti_divider, metric_card, etc.) are
-kept stable across the earlier graffiti-themed version so every page
-that already imports them keeps working - only the visual output
-changed, not the API.
-"""
-
 import streamlit as st
+from streamlit_echarts import st_echarts
 
-TEAL = "#00C2A8"
-VIOLET = "#7B6CF6"
-AMBER = "#F59E0B"
-ROSE = "#F43F5E"
-GREEN = "#10B981"
-BG = "#080b12"
-SURFACE = "#0d1117"
-SURFACE2 = "#111827"
+from utils import calculations as calc
+from utils import charts
+from utils import sheets
+from utils.styling import inject_css, metrics_grid, fmt_money, hero_title, graffiti_divider
 
-# Cycled across metric cards so a grid of them doesn't look monotone,
-# without being as loud as a full rainbow.
-ACCENT_CYCLE = [TEAL, VIOLET, AMBER]
+st.set_page_config(
+    page_title="Founder Revenue OS",
+    page_icon="💼",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-CUSTOM_CSS = f"""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
-
-:root {{
-    --bg: {BG};
-    --surface: {SURFACE};
-    --surface2: {SURFACE2};
-    --surface3: #1a2332;
-    --border: rgba(255,255,255,0.07);
-    --border2: rgba(255,255,255,0.12);
-    --text: #f0f4ff;
-    --muted: #64748b;
-    --teal: {TEAL};
-    --violet: {VIOLET};
-    --amber: {AMBER};
-    --rose: {ROSE};
-    --green: {GREEN};
-}}
-
-html, body, [class*="css"], .stApp {{
-    font-family: 'Outfit', sans-serif !important;
-    background: var(--bg) !important;
-    color: var(--text) !important;
-}}
-
-::-webkit-scrollbar {{ width: 4px; }}
-::-webkit-scrollbar-track {{ background: transparent; }}
-::-webkit-scrollbar-thumb {{ background: var(--surface3); border-radius: 4px; }}
-
-[data-testid="stSidebar"] {{
-    background: var(--surface) !important;
-    border-right: 1px solid var(--border) !important;
-}}
-[data-testid="stSidebar"] * {{ color: var(--text) !important; }}
-
-#MainMenu, footer {{ visibility: hidden; }}
-[data-testid="stDecoration"] {{ display: none; }}
-header[data-testid="stHeader"] {{ background: transparent !important; }}
-header[data-testid="stHeader"] > div:first-child {{ visibility: hidden; }}
-[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapsedControl"],
-button[kind="header"],
-[data-testid="stHeader"] button {{
-    visibility: visible !important;
-    opacity: 1 !important;
-    pointer-events: all !important;
-    z-index: 999999 !important;
-}}
-
-h1, h2, h3 {{
-    font-family: 'Outfit', sans-serif !important;
-    font-weight: 800 !important;
-    letter-spacing: -0.5px;
-    color: var(--text) !important;
-}}
-
-/* ---- Hero title (landing + dashboard): gradient-clipped headline ---- */
-.hero-title {{
-    font-family: 'Outfit', sans-serif;
-    font-size: 2.6rem;
-    font-weight: 900;
-    letter-spacing: -1.2px;
-    line-height: 1.1;
-    background: linear-gradient(135deg, #f0f4ff 35%, {TEAL});
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin-bottom: 0.2rem;
-}}
-@media (max-width: 480px) {{
-    .hero-title {{ font-size: 1.9rem; }}
-}}
-.hero-tagline {{
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.72rem;
-    color: var(--muted);
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    margin-top: 4px;
-}}
-.hero-underline {{ display: none; }}
-
-/* ---- Section divider: thin gradient line instead of default hr ---- */
-.graffiti-divider {{
-    height: 1px;
-    margin: 22px 0;
-    background: linear-gradient(90deg, {TEAL}55, {VIOLET}33, transparent);
-    border: none;
-}}
-hr {{ border-color: var(--border) !important; margin: 1rem 0 !important; }}
-
-/* ---- Metric / KPI cards ---- */
-.metric-card {{
-    background: linear-gradient(135deg, {SURFACE}, {SURFACE2});
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 1.2rem 1.3rem;
-    position: relative;
-    overflow: hidden;
-}}
-.metric-card::before {{
-    content: "";
-    position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    background: linear-gradient(90deg, {TEAL}, {TEAL}80);
-}}
-.metrics-grid > .metric-card:nth-child(3n+2)::before {{ background: linear-gradient(90deg, {VIOLET}, {VIOLET}80); }}
-.metrics-grid > .metric-card:nth-child(3n+3)::before {{ background: linear-gradient(90deg, {AMBER}, {AMBER}80); }}
-.metric-label {{
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
-    color: var(--text);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 6px;
-}}
-.metric-value {{
-    font-family: 'Outfit', sans-serif;
-    font-size: 1.6rem;
-    font-weight: 800;
-    color: {TEAL};
-    line-height: 1.1;
-}}
-.metrics-grid > .metric-card:nth-child(3n+2) .metric-value {{ color: {VIOLET}; }}
-.metrics-grid > .metric-card:nth-child(3n+3) .metric-value {{ color: {AMBER}; }}
-.metric-sub {{
-    font-size: 0.75rem;
-    color: var(--muted);
-    margin-top: 3px;
-}}
-.metrics-grid {{
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-    margin-bottom: 14px;
-}}
-@media (max-width: 480px) {{
-    .metrics-grid {{ gap: 10px; }}
-    .metrics-grid .metric-card {{ padding: 1rem 1.1rem; }}
-    .metrics-grid .metric-label {{ font-size: 0.62rem; }}
-    .metrics-grid .metric-value {{ font-size: 1.25rem; }}
-}}
-
-/* ---- Status pills ---- */
-.status-pill {{
-    display: inline-block;
-    padding: 3px 11px;
-    border-radius: 999px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border: 1px solid transparent;
-}}
-.status-paid {{ background: rgba(16,185,129,0.15); color: {GREEN}; border-color: rgba(16,185,129,0.3); }}
-.status-partial {{ background: rgba(245,158,11,0.15); color: {AMBER}; border-color: rgba(245,158,11,0.3); }}
-.status-unpaid {{ background: rgba(244,63,94,0.15); color: {ROSE}; border-color: rgba(244,63,94,0.3); }}
-
-/* ---- Inputs ---- */
-.stTextInput > div > div > input,
-.stNumberInput > div > div > input,
-.stTextArea > div > div > textarea,
-.stDateInput input {{
-    background: var(--surface2) !important;
-    border: 1px solid var(--border2) !important;
-    border-radius: 10px !important;
-    color: var(--text) !important;
-    font-family: 'Outfit', sans-serif !important;
-    padding: 0.6rem 1rem !important;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}}
-.stTextInput > div > div > input:focus,
-.stNumberInput > div > div > input:focus,
-.stTextArea > div > div > textarea:focus {{
-    border-color: var(--teal) !important;
-    box-shadow: 0 0 0 3px rgba(0,194,168,0.15) !important;
-    outline: none !important;
-}}
-.stTextInput label, .stNumberInput label, .stTextArea label,
-.stSelectbox label, .stDateInput label, .stRadio label {{
-    color: var(--muted) !important;
-    font-size: 0.78rem !important;
-    font-weight: 500 !important;
-    letter-spacing: 0.06em !important;
-    text-transform: uppercase !important;
-    font-family: 'JetBrains Mono', monospace !important;
-}}
-div[data-baseweb="select"] > div {{
-    background: var(--surface2) !important;
-    border: 1px solid var(--border2) !important;
-    border-radius: 10px !important;
-}}
-
-/* ---- Buttons ---- */
-.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {{
-    background: linear-gradient(135deg, var(--teal), #00a896) !important;
-    color: #000 !important;
-    border: none !important;
-    border-radius: 10px !important;
-    font-family: 'Outfit', sans-serif !important;
-    font-weight: 700 !important;
-    font-size: 0.9rem !important;
-    letter-spacing: 0.02em !important;
-    padding: 0.6rem 1.4rem !important;
-    transition: all 0.2s ease !important;
-    box-shadow: 0 4px 15px rgba(0,194,168,0.2) !important;
-}}
-.stButton > button:hover, .stDownloadButton > button:hover, .stFormSubmitButton > button:hover {{
-    transform: translateY(-2px) !important;
-    box-shadow: 0 8px 25px rgba(0,194,168,0.35) !important;
-    color: #000 !important;
-}}
-.stButton > button[kind="secondary"] {{
-    background: var(--surface2) !important;
-    color: var(--text) !important;
-    box-shadow: none !important;
-    border: 1px solid var(--border2) !important;
-}}
-
-/* ---- Tabs ---- */
-.stTabs [data-baseweb="tab-list"] {{ gap: 4px; border-bottom: 1px solid var(--border) !important; }}
-.stTabs [data-baseweb="tab"] {{
-    font-family: 'Outfit', sans-serif;
-    font-weight: 600;
-    background: transparent;
-    border-radius: 10px 10px 0 0;
-    color: var(--muted) !important;
-    padding: 8px 16px !important;
-}}
-.stTabs [aria-selected="true"] {{
-    background: var(--surface2) !important;
-    color: var(--teal) !important;
-    border-bottom: 2px solid var(--teal) !important;
-}}
-
-/* ---- Dataframes / forms ---- */
-.stDataFrame {{ border-radius: 12px !important; overflow: hidden !important; }}
-[data-testid="stForm"] {{
-    background: var(--surface2) !important;
-    border: 1px solid var(--border) !important;
-    border-radius: 16px !important;
-    padding: 1.5rem !important;
-}}
-.stSuccess, .stError, .stWarning, .stInfo {{ border-radius: 10px !important; }}
-
-@keyframes fadeSlideUp {{
-    from {{ opacity: 0; transform: translateY(16px); }}
-    to   {{ opacity: 1; transform: translateY(0); }}
-}}
-.fade-in {{ animation: fadeSlideUp 0.45s ease forwards; }}
-</style>
-"""
+inject_css()
 
 
-def inject_css():
-    st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+def check_password():
+    if st.session_state.get("authenticated"):
+        return True
+
+    hero_title("FOUNDER REVENUE OS", tagline="Consulting + SaaS, tracked in one place")
+    pwd = st.text_input("Enter app password", type="password")
+    if st.button("Enter"):
+        if pwd == st.secrets["app_config"].get("app_password", ""):
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("Incorrect password.")
+    return False
 
 
-def hero_title(text: str, tagline: str = ""):
-    """Gradient-clipped headline - use for the landing/login screen and
-    the main dashboard title."""
-    tagline_html = f'<div class="hero-tagline">{tagline}</div>' if tagline else ""
-    st.markdown(
-        f'<div class="fade-in hero-title">{text}</div>{tagline_html}',
-        unsafe_allow_html=True,
-    )
+if not check_password():
+    st.stop()
 
-
-def graffiti_divider():
-    """A thin gradient section divider. (Name kept from the previous
-    theme so existing call sites don't need to change.)"""
-    st.markdown('<div class="graffiti-divider"></div>', unsafe_allow_html=True)
-
-
-def metric_card(label: str, value: str, sub: str = ""):
-    """Single card via st.markdown - fine inside st.columns for
-    desktop-oriented layouts. On mobile, prefer metrics_grid() below,
-    since st.columns always collapses to one-per-row on narrow screens
-    no matter how many columns you ask for."""
-    st.markdown(_metric_card_html(label, value, sub), unsafe_allow_html=True)
-
-
-def _metric_card_html(label: str, value: str, sub: str = "") -> str:
-    return (
-        f'<div class="metric-card fade-in">'
-        f'<div class="metric-label">{label}</div>'
-        f'<div class="metric-value">{value}</div>'
-        f'<div class="metric-sub">{sub}</div>'
-        f'</div>'
-    )
-
-
-def metrics_grid(items, columns: int = 2):
-    """Render a list of (label, value, sub) tuples as a real CSS grid in
-    a single st.markdown call. Unlike st.columns, this keeps N cards per
-    row on phones instead of stacking to one per row - the grid is plain
-    CSS, not a Streamlit layout primitive, so the browser's own narrow
-    viewport rules never override it."""
-    cards_html = "".join(_metric_card_html(label, value, sub) for label, value, sub in items)
-    st.markdown(
-        f'<div class="metrics-grid" style="grid-template-columns: repeat({columns}, 1fr);">{cards_html}</div>',
-        unsafe_allow_html=True,
-    )
-
-
-def status_pill(status: str) -> str:
-    cls = {"Paid": "status-paid", "Partial": "status-partial", "Unpaid": "status-unpaid"}.get(status, "status-unpaid")
-    return f'<span class="status-pill {cls}">{status}</span>'
-
-
-CURRENCY_SYMBOLS = {
-    "USD": "$",
-    "GBP": "£",
-    "EUR": "€",
-    "NGN": "₦",
-}
-
-
-def fmt_money(value, currency_code="USD"):
-    """Format an amount WITH the currency it's actually denominated in.
-    Never assume USD - a mislabeled currency here is how NGN 10,000
-    ends up looking like $10,000."""
-    symbol = CURRENCY_SYMBOLS.get(currency_code)
+with st.spinner("Connecting to Google Sheets..."):
     try:
-        if symbol:
-            return f"{symbol}{value:,.2f}"
-        return f"{value:,.2f} {currency_code}"
-    except (TypeError, ValueError):
-        return f"0.00 {currency_code}" if not symbol else f"{symbol}0.00"
+        sheets.bootstrap_sheets()
+    except Exception as e:
+        st.error(
+            "Couldn't connect to Google Sheets. Check that:\n\n"
+            "1. Your `secrets.toml` service account details are correct\n"
+            "2. The sheet has been shared (Editor access) with the "
+            "service account's client_email\n"
+            "3. `app_config.sheet_url` points to the right spreadsheet\n\n"
+            f"Raw error: {e}"
+        )
+        st.stop()
 
+projects = sheets.read_sheet("Projects")
+payments = sheets.read_sheet("Payments")
+saas_monthly = sheets.read_sheet("SaaSMonthly")
+saas_transactions = sheets.read_sheet("SaaSTransactions")
+expenses = sheets.read_sheet("Expenses")
+settings = sheets.read_sheet("Settings")
 
-def fmt_currency(value, symbol="$"):
-    """Legacy formatter - kept only for call sites not yet migrated.
-    Prefer fmt_money(value, currency_code) everywhere so the label
-    always matches the actual currency of the amount."""
-    try:
-        return f"{symbol}{value:,.2f}"
-    except (TypeError, ValueError):
-        return f"{symbol}0.00"
+base_currency = calc.get_base_currency(settings)
+rates = calc.get_fx_rates(settings)
+
+payments_with_currency = None
+if not payments.empty and not projects.empty:
+    payments_with_currency = payments.merge(projects[["project_id", "currency"]], on="project_id", how="left")
+
+missing = calc.missing_fx_currencies(
+    projects, payments_with_currency, saas_monthly, saas_transactions, expenses, rates=rates
+)
+if missing:
+    st.warning(
+        f"No exchange rate saved for: **{', '.join(missing)}**. Amounts in these currencies "
+        f"are being treated as 1:1 with {base_currency} in combined totals below - "
+        f"add their rates in **Settings → Exchange Rates** to fix this."
+    )
+
+enriched = calc.enrich_projects(projects, payments, rates, base_currency)
+stream_monthly = calc.stream_revenue_monthly(payments, projects, saas_monthly, saas_transactions, rates, base_currency)
+metrics = calc.dashboard_metrics(projects, payments, saas_monthly, saas_transactions, expenses, rates, base_currency)
+
+hero_title("FOUNDER REVENUE OS", tagline="Every stream, one dashboard")
+st.caption(
+    f"Combined revenue across Research & Consulting and every SaaS product you're shipping. "
+    f"All totals below are converted to your reporting currency, **{base_currency}**."
+)
+
+tab_overview, tab_streams, tab_monthly, tab_profit = st.tabs(
+    ["📊 Overview", "🥧 Revenue by Stream", "🗓️ Monthly Breakdown", "💹 Profit Trend"]
+)
+
+with tab_overview:
+    metrics_grid([
+        ("Lifetime Revenue", fmt_money(metrics["lifetime_revenue"], base_currency), ""),
+        ("Revenue This Month", fmt_money(metrics["revenue_month"], base_currency), ""),
+        ("Revenue This Year", fmt_money(metrics["revenue_year"], base_currency), ""),
+        ("Revenue Today", fmt_money(metrics["revenue_today"], base_currency), ""),
+        ("Outstanding (Consulting)", fmt_money(metrics["outstanding"], base_currency), ""),
+        ("Net Profit", fmt_money(metrics["net_profit"], base_currency), ""),
+        ("Total Expenses", fmt_money(metrics["total_expenses"], base_currency), ""),
+        ("Consulting Projects", str(metrics["total_projects"]), ""),
+        ("Consulting Clients", str(metrics["total_clients"]), ""),
+    ], columns=2)
+
+    if stream_monthly.empty:
+        st.info(
+            "No revenue logged yet. Head to **Consulting Projects** to add a client "
+            "engagement, or **SaaS Revenue** to log product revenue."
+        )
+
+with tab_streams:
+    if stream_monthly.empty:
+        st.info("No revenue logged yet.")
+    else:
+        st.subheader(f"Revenue by Stream ({base_currency})")
+        by_stream = calc.revenue_by_stream_total(stream_monthly)
+        opts = charts.donut_chart(by_stream["stream"].tolist(), by_stream["revenue"].round(2).tolist(), unit_label=base_currency)
+        st_echarts(options=opts, height="360px")
+
+        st.subheader(f"Monthly Revenue Trend, Combined ({base_currency})")
+        combined = calc.combined_monthly_revenue(stream_monthly)
+        opts = charts.bar_chart(combined["month"].tolist(), combined["revenue"].round(2).tolist(), axis_name=base_currency)
+        st_echarts(options=opts, height="340px")
+
+with tab_monthly:
+    if stream_monthly.empty:
+        st.info("No revenue logged yet.")
+    else:
+        st.subheader(f"Revenue by Stream, by Month ({base_currency})")
+        pivot = stream_monthly.pivot_table(index="month", columns="stream", values="revenue", aggfunc="sum").fillna(0).sort_index()
+        series_data = {stream: pivot[stream].round(2).tolist() for stream in pivot.columns}
+        opts = charts.stacked_bar_chart(pivot.index.tolist(), series_data, axis_name=base_currency, height="400px")
+        st_echarts(options=opts, height="400px")
+
+with tab_profit:
+    if stream_monthly.empty:
+        st.info("No revenue logged yet.")
+    else:
+        st.subheader(f"Profit Trend, Revenue vs. Expenses ({base_currency})")
+        trend = calc.profit_trend(stream_monthly, expenses, rates, base_currency)
+        if not trend.empty:
+            series_data = {
+                "Revenue": trend["revenue"].round(2).tolist(),
+                "Expense": trend["expense"].round(2).tolist(),
+                "Profit": trend["profit"].round(2).tolist(),
+            }
+            opts = charts.multi_line_area_chart(trend["month"].tolist(), series_data, axis_name=base_currency, height="360px")
+            st_echarts(options=opts, height="360px")
+        else:
+            st.caption("Record some expenses to see this chart.")
+
+st.sidebar.success("Connected to Google Sheets")
+st.sidebar.caption(
+    "Navigate using the pages above: Consulting Projects, Consulting Payments, "
+    "SaaS Revenue, Expenses, Analytics, Settings."
+)
+if st.sidebar.button("🔄 Refresh data"):
+    sheets.refresh_data()
+    st.rerun()
+st.sidebar.caption("Data is cached for ~20s to stay well under Google's API rate limits — use Refresh if you just edited the Sheet directly.")
