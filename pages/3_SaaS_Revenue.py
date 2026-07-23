@@ -1,9 +1,10 @@
 from datetime import date
 
-import plotly.express as px
 import streamlit as st
+from streamlit_echarts import st_echarts
 
 from utils import calculations as calc
+from utils import charts
 from utils import sheets
 from utils.styling import inject_css, fmt_money
 
@@ -61,15 +62,14 @@ with tab_overview:
         left, right = st.columns(2)
         with left:
             st.subheader("Revenue by Product")
-            fig = px.pie(by_product, names="product", values="revenue", hole=0.45)
-            fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=340)
-            st.plotly_chart(fig, use_container_width=True)
+            opts = charts.donut_chart(by_product["product"].tolist(), by_product["revenue"].round(2).tolist(), unit_label=base_currency)
+            st_echarts(options=opts, height="340px")
         with right:
             st.subheader("Monthly Trend by Product")
-            fig = px.bar(reconciled, x="month", y="revenue", color="product",
-                         labels={"month": "Month", "revenue": f"Revenue ({base_currency})"}, barmode="stack")
-            fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=340)
-            st.plotly_chart(fig, use_container_width=True)
+            pivot = reconciled.pivot_table(index="month", columns="product", values="revenue", aggfunc="sum").fillna(0).sort_index()
+            series_data = {product: pivot[product].round(2).tolist() for product in pivot.columns}
+            opts = charts.stacked_bar_chart(pivot.index.tolist(), series_data, axis_name=base_currency, height="340px")
+            st_echarts(options=opts, height="340px")
 
         st.subheader("Product + Month Detail")
         display = reconciled.copy()

@@ -1,7 +1,8 @@
-import plotly.express as px
 import streamlit as st
+from streamlit_echarts import st_echarts
 
 from utils import calculations as calc
+from utils import charts
 from utils import sheets
 from utils.styling import inject_css, metric_card, fmt_money
 
@@ -71,9 +72,8 @@ combined = calc.combined_monthly_revenue(stream_monthly)
 if not combined.empty:
     combined = combined.sort_values("month")
     combined["cumulative"] = combined["revenue"].cumsum()
-    fig = px.area(combined, x="month", y="cumulative", labels={"month": "Month", "cumulative": f"Cumulative Revenue ({base_currency})"})
-    fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=320)
-    st.plotly_chart(fig, use_container_width=True)
+    opts = charts.area_growth_chart(combined["month"].tolist(), combined["cumulative"].round(2).tolist(), axis_name=base_currency)
+    st_echarts(options=opts, height="320px")
 
 st.subheader(f"Per-Stream Profit ({base_currency})")
 st.caption("Revenue by stream, minus expenses tagged to that same stream. Untagged/General expenses aren't split — see Combined Net Profit on the dashboard for the full picture.")
@@ -96,10 +96,8 @@ with col_a:
         rb = unpaid.groupby("client_name")["outstanding_balance_base"].sum().reset_index().sort_values(
             "outstanding_balance_base", ascending=False
         )
-        fig = px.bar(rb, x="outstanding_balance_base", y="client_name", orientation="h",
-                     labels={"outstanding_balance_base": f"Outstanding ({base_currency})", "client_name": "Client"})
-        fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=320, yaxis=dict(autorange="reversed"))
-        st.plotly_chart(fig, use_container_width=True)
+        opts = charts.horizontal_bar_chart(rb["client_name"].tolist(), rb["outstanding_balance_base"].round(2).tolist(), axis_name=base_currency)
+        st_echarts(options=opts, height="320px")
     else:
         st.caption("Nothing outstanding — fully collected! 🎉")
 
@@ -107,19 +105,17 @@ with col_b:
     st.subheader(f"Expense Trends ({base_currency})")
     exp_trend = calc.monthly_expense_series(expenses, rates, base_currency)
     if not exp_trend.empty:
-        fig = px.line(exp_trend, x="month", y="expense", markers=True,
-                      labels={"month": "Month", "expense": f"Expense ({base_currency})"})
-        fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=320)
-        st.plotly_chart(fig, use_container_width=True)
+        opts = charts.area_growth_chart(exp_trend["month"].tolist(), exp_trend["expense"].round(2).tolist(),
+                                         axis_name=base_currency, color=charts.PALETTE[4])
+        st_echarts(options=opts, height="320px")
     else:
         st.caption("No expenses recorded yet.")
 
 st.subheader(f"Expense Distribution by Category ({base_currency})")
 dist = calc.expense_distribution(expenses, rates, base_currency)
 if not dist.empty:
-    fig = px.pie(dist, names="category", values="amount", hole=0.45)
-    fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=340)
-    st.plotly_chart(fig, use_container_width=True)
+    opts = charts.donut_chart(dist["category"].tolist(), dist["amount"].round(2).tolist(), unit_label=base_currency)
+    st_echarts(options=opts, height="340px")
 else:
     st.caption("No expenses recorded yet.")
 
