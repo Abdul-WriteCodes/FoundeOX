@@ -6,7 +6,7 @@ from streamlit_echarts import st_echarts
 from utils import calculations as calc
 from utils import charts
 from utils import sheets
-from utils.styling import inject_css, fmt_money
+from utils.styling import inject_css, fmt_money, graffiti_divider
 
 st.set_page_config(page_title="SaaS Revenue — Founder Revenue OS", page_icon="🚀", layout="wide")
 inject_css()
@@ -58,7 +58,7 @@ with tab_overview:
             with cols[i % len(cols)]:
                 st.metric(r["product"], fmt_money(r["revenue"], base_currency))
 
-        st.divider()
+        graffiti_divider()
         left, right = st.columns(2)
         with left:
             st.subheader("Revenue by Product")

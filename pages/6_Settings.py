@@ -2,7 +2,7 @@ import streamlit as st
 
 from utils import calculations as calc
 from utils import sheets
-from utils.styling import inject_css
+from utils.styling import inject_css, graffiti_divider
 
 st.set_page_config(page_title="Settings — Founder Revenue OS", page_icon="⚙️", layout="wide")
 inject_css()
@@ -57,7 +57,7 @@ with tabs[0]:
         st.toast(f"Reporting currency set to {new_base}", icon="✅")
         st.rerun()
 
-    st.divider()
+    graffiti_divider()
     st.subheader("Exchange Rates")
     st.caption(
         f"For each currency you use, enter how many units of {base_currency} "
@@ -122,7 +122,7 @@ for tab, (setting_type, label) in zip(tabs[1:], setting_groups):
                 elif new_val in values:
                     st.warning("That value already exists.")
 
-st.divider()
+graffiti_divider()
 st.subheader("About")
 st.markdown(
     "**Founder Revenue OS** — your personal business operating system, tracking "

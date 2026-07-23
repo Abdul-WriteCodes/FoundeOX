@@ -4,7 +4,7 @@ from streamlit_echarts import st_echarts
 from utils import calculations as calc
 from utils import charts
 from utils import sheets
-from utils.styling import inject_css, metrics_grid, fmt_money
+from utils.styling import inject_css, metrics_grid, fmt_money, graffiti_divider
 
 st.set_page_config(page_title="Analytics — Founder Revenue OS", page_icon="📊", layout="wide")
 inject_css()
@@ -65,7 +65,7 @@ metrics_grid([
     ("Outstanding Receivables", fmt_money(outstanding_total, base_currency), ""),
 ], columns=2)
 
-st.divider()
+graffiti_divider()
 
 st.subheader(f"Revenue Growth, Cumulative, Combined ({base_currency})")
 combined = calc.combined_monthly_revenue(stream_monthly)
@@ -119,7 +119,7 @@ if not dist.empty:
 else:
     st.caption("No expenses recorded yet.")
 
-st.divider()
+graffiti_divider()
 st.subheader("Export")
 e1, e2, e3, e4 = st.columns(4)
 with e1:
