@@ -286,12 +286,14 @@ def inject_css():
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 
-def hero_title(text: str, tagline: str = ""):
+def hero_title(text: str, tagline: str = "", center: bool = False):
     """Gradient-clipped headline - use for the landing/login screen and
-    the main dashboard title."""
-    tagline_html = f'<div class="hero-tagline">{tagline}</div>' if tagline else ""
+    the main dashboard title. Pass center=True (e.g. on the login
+    screen) to center the text instead of the default left alignment."""
+    align_style = ' style="text-align:center;"' if center else ""
+    tagline_html = f'<div class="hero-tagline"{align_style}>{tagline}</div>' if tagline else ""
     st.markdown(
-        f'<div class="fade-in hero-title">{text}</div>{tagline_html}',
+        f'<div class="fade-in hero-title"{align_style}>{text}</div>{tagline_html}',
         unsafe_allow_html=True,
     )
 
