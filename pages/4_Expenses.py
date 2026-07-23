@@ -2,9 +2,10 @@ from datetime import date
 
 import streamlit as st
 
+from utils import calculations as calc
 from utils import sheets
 from utils.sheets import CONSULTING_STREAM, GENERAL_STREAM
-from utils.styling import inject_css, fmt_currency
+from utils.styling import inject_css, fmt_money
 
 st.set_page_config(page_title="Expenses — Founder Revenue OS", page_icon="🧾", layout="wide")
 inject_css()
@@ -22,6 +23,9 @@ expense_categories = settings.loc[settings["setting_type"] == "expense_category"
 currencies = settings.loc[settings["setting_type"] == "currency", "value"].tolist() or ["USD"]
 products = settings.loc[settings["setting_type"] == "product", "value"].tolist()
 stream_options = [GENERAL_STREAM, CONSULTING_STREAM] + products
+
+rates = calc.get_fx_rates(settings)
+base_currency = calc.get_base_currency(settings)
 
 tab_list, tab_new = st.tabs(["All Expenses", "+ New Expense"])
 
@@ -61,6 +65,13 @@ with tab_list:
     if expenses.empty:
         st.info("No expenses recorded yet.")
     else:
+        missing = calc.missing_fx_currencies(expenses, rates=rates)
+        if missing:
+            st.warning(
+                f"No exchange rate saved for: **{', '.join(missing)}**. The total below "
+                f"treats these as 1:1 with {base_currency} — fix in Settings → Exchange Rates."
+            )
+
         fcol1, fcol2, fcol3 = st.columns(3)
         with fcol1:
             cat_filter = st.multiselect("Filter by category", sorted(expenses["category"].unique()))
@@ -78,11 +89,15 @@ with tab_list:
         if search:
             view = view[view["description"].str.contains(search, case=False, na=False)]
 
-        total = view["amount"].astype(float).sum() if not view.empty else 0.0
-        st.caption(f"Showing {len(view)} of {len(expenses)} expenses — total {fmt_currency(total)}")
+        # this view can span multiple currencies, so the total is
+        # converted to base currency rather than summed raw
+        total_base = calc.convert_to_base(view["amount"].astype(float), view["currency"], rates, base_currency).sum() if not view.empty else 0.0
+        st.caption(f"Showing {len(view)} of {len(expenses)} expenses — total {fmt_money(total_base, base_currency)}")
 
+        view["amount_display"] = view.apply(lambda r: fmt_money(float(r["amount"]), r["currency"]), axis=1)
         st.dataframe(
-            view[["expense_date", "category", "stream", "amount", "currency", "description"]]
+            view[["expense_date", "category", "stream", "amount_display", "description"]]
+            .rename(columns={"amount_display": "amount"})
             .sort_values("expense_date", ascending=False),
             use_container_width=True, hide_index=True,
         )
@@ -90,7 +105,7 @@ with tab_list:
         st.markdown("---")
         st.markdown("**Delete an expense**")
         del_options = {
-            f"{r['expense_date']} — {r['category']} — {fmt_currency(float(r['amount']))} ({r['expense_id']})": r["expense_id"]
+            f"{r['expense_date']} — {r['category']} — {fmt_money(float(r['amount']), r['currency'])} ({r['expense_id']})": r["expense_id"]
             for _, r in expenses.iterrows()
         }
         chosen = st.selectbox("Select expense to delete", ["—"] + list(del_options.keys()))

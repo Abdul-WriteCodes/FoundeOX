@@ -1,12 +1,11 @@
 from datetime import date
 
-import pandas as pd
 import plotly.express as px
 import streamlit as st
 
 from utils import calculations as calc
 from utils import sheets
-from utils.styling import inject_css, fmt_currency
+from utils.styling import inject_css, fmt_money
 
 st.set_page_config(page_title="SaaS Revenue — Founder Revenue OS", page_icon="🚀", layout="wide")
 inject_css()
@@ -29,6 +28,9 @@ products = settings.loc[settings["setting_type"] == "product", "value"].tolist()
 currencies = settings.loc[settings["setting_type"] == "currency", "value"].tolist() or ["USD"]
 payment_methods = ["Stripe", "PayPal", "Paddle", "LemonSqueezy", "Bank Transfer", "Crypto", "Other"]
 
+rates = calc.get_fx_rates(settings)
+base_currency = calc.get_base_currency(settings)
+
 tab_overview, tab_monthly, tab_txn = st.tabs(
     ["Overview", "Log Monthly Total", "Log Transaction"]
 )
@@ -37,15 +39,23 @@ saas_monthly = sheets.read_sheet("SaaSMonthly")
 saas_transactions = sheets.read_sheet("SaaSTransactions")
 
 with tab_overview:
-    reconciled = calc.saas_reconciled_monthly(saas_monthly, saas_transactions)
+    missing = calc.missing_fx_currencies(saas_monthly, saas_transactions, rates=rates)
+    if missing:
+        st.warning(
+            f"No exchange rate saved for: **{', '.join(missing)}**. These are being "
+            f"treated as 1:1 with {base_currency} below — fix in Settings → Exchange Rates."
+        )
+
+    reconciled = calc.saas_reconciled_monthly(saas_monthly, saas_transactions, rates, base_currency)
     if reconciled.empty:
         st.info("No SaaS revenue logged yet — use the tabs above to add a monthly total or a transaction.")
     else:
-        by_product = calc.saas_total_by_product(saas_monthly, saas_transactions)
+        st.caption(f"All totals below are converted to your reporting currency, **{base_currency}**.")
+        by_product = calc.saas_total_by_product(saas_monthly, saas_transactions, rates, base_currency)
         cols = st.columns(min(len(by_product), 4) or 1)
         for i, (_, r) in enumerate(by_product.iterrows()):
             with cols[i % len(cols)]:
-                st.metric(r["product"], fmt_currency(r["revenue"]))
+                st.metric(r["product"], fmt_money(r["revenue"], base_currency))
 
         st.divider()
         left, right = st.columns(2)
@@ -57,13 +67,13 @@ with tab_overview:
         with right:
             st.subheader("Monthly Trend by Product")
             fig = px.bar(reconciled, x="month", y="revenue", color="product",
-                         labels={"month": "Month", "revenue": "Revenue"}, barmode="stack")
+                         labels={"month": "Month", "revenue": f"Revenue ({base_currency})"}, barmode="stack")
             fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=340)
             st.plotly_chart(fig, use_container_width=True)
 
         st.subheader("Product + Month Detail")
         display = reconciled.copy()
-        display["revenue"] = display["revenue"].map(lambda v: fmt_currency(v))
+        display["revenue"] = display["revenue"].map(lambda v: fmt_money(v, base_currency))
         st.dataframe(display, use_container_width=True, hide_index=True)
 
 with tab_monthly:
@@ -92,14 +102,15 @@ with tab_monthly:
                 st.rerun()
 
     if not saas_monthly.empty:
-        st.markdown("**Existing monthly totals**")
-        view = saas_monthly.sort_values(["product", "month"], ascending=[True, False])
+        st.markdown("**Existing monthly totals** (each in its own recorded currency)")
+        view = saas_monthly.copy().sort_values(["product", "month"], ascending=[True, False])
+        view["amount_display"] = view.apply(lambda r: fmt_money(float(r["amount"]), r["currency"]), axis=1)
         st.dataframe(
-            view[["product", "month", "amount", "currency", "notes"]],
+            view[["product", "month", "amount_display", "notes"]].rename(columns={"amount_display": "amount"}),
             use_container_width=True, hide_index=True,
         )
         del_options = {
-            f"{r['product']} — {r['month']} — {fmt_currency(float(r['amount']))}": r["entry_id"]
+            f"{r['product']} — {r['month']} — {fmt_money(float(r['amount']), r['currency'])}": r["entry_id"]
             for _, r in saas_monthly.iterrows()
         }
         chosen = st.selectbox("Select monthly total to delete", ["—"] + list(del_options.keys()), key="del_monthly")
@@ -140,7 +151,7 @@ with tab_txn:
                 st.rerun()
 
     if not saas_transactions.empty:
-        st.markdown("**Existing transactions**")
+        st.markdown("**Existing transactions** (each in its own recorded currency)")
         fcol1, fcol2 = st.columns(2)
         with fcol1:
             product_filter = st.multiselect("Filter by product", sorted(saas_transactions["product"].unique()))
@@ -153,14 +164,16 @@ with tab_txn:
         if search:
             view = view[view["customer"].str.contains(search, case=False, na=False)]
 
+        view["amount_display"] = view.apply(lambda r: fmt_money(float(r["amount"]), r["currency"]), axis=1)
         st.dataframe(
-            view[["date", "product", "amount", "currency", "customer", "payment_method", "notes"]]
+            view[["date", "product", "amount_display", "customer", "payment_method", "notes"]]
+            .rename(columns={"amount_display": "amount"})
             .sort_values("date", ascending=False),
             use_container_width=True, hide_index=True,
         )
 
         del_options = {
-            f"{r['date']} — {r['product']} — {fmt_currency(float(r['amount']))} ({r['transaction_id']})": r["transaction_id"]
+            f"{r['date']} — {r['product']} — {fmt_money(float(r['amount']), r['currency'])} ({r['transaction_id']})": r["transaction_id"]
             for _, r in saas_transactions.iterrows()
         }
         chosen = st.selectbox("Select transaction to delete", ["—"] + list(del_options.keys()), key="del_txn")

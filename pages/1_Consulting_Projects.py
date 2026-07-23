@@ -4,7 +4,7 @@ import streamlit as st
 
 from utils import calculations as calc
 from utils import sheets
-from utils.styling import inject_css, status_pill, fmt_currency
+from utils.styling import inject_css, status_pill, fmt_money
 
 st.set_page_config(page_title="Consulting Projects — Founder Revenue OS", page_icon="📁", layout="wide")
 inject_css()
@@ -73,7 +73,9 @@ with tab_new:
 with tab_list:
     projects = sheets.read_sheet("Projects")
     payments = sheets.read_sheet("Payments")
-    enriched = calc.enrich_projects(projects, payments)
+    rates = calc.get_fx_rates(settings)
+    base_currency = calc.get_base_currency(settings)
+    enriched = calc.enrich_projects(projects, payments, rates, base_currency)
 
     if enriched.empty:
         st.info("No projects yet. Create your first one in the **+ New Project** tab.")
@@ -103,7 +105,7 @@ with tab_list:
         for _, row in view.iterrows():
             with st.expander(
                 f"{row['project_title']} — {row['client_name']}  "
-                f"({fmt_currency(row['project_value'])} {row['currency']})"
+                f"({fmt_money(row['project_value'], row['currency'])})"
             ):
                 top1, top2, top3 = st.columns([2, 1, 1])
                 with top1:
@@ -113,8 +115,8 @@ with tab_list:
                     st.markdown(f"**Status:** {row['project_status']}")
                     st.markdown(f"**Payment:** {status_pill(row['payment_status'])}", unsafe_allow_html=True)
                 with top3:
-                    st.markdown(f"**Received:** {fmt_currency(row['amount_received'])}")
-                    st.markdown(f"**Outstanding:** {fmt_currency(row['outstanding_balance'])}")
+                    st.markdown(f"**Received:** {fmt_money(row['amount_received'], row['currency'])}")
+                    st.markdown(f"**Outstanding:** {fmt_money(row['outstanding_balance'], row['currency'])}")
                 st.progress(min(row["payment_percentage"] / 100, 1.0), text=f"{row['payment_percentage']}% paid")
 
                 proj_payments = payments[payments["project_id"] == row["project_id"]]
