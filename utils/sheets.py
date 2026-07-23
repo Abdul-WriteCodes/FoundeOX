@@ -88,6 +88,17 @@ DEFAULT_SETTINGS = [
     ("product", "Agent43"),
     ("product", "EmpiricX"),
     ("product", "Other"),
+    # Reporting currency for combined/cross-stream totals. All aggregation
+    # across streams/projects/products converts into this currency first -
+    # raw amounts are NEVER summed across different currencies.
+    ("base_currency", "USD"),
+    # One rate per currency: how many units of base_currency one unit of
+    # that currency is worth. These are placeholders - YOU must keep them
+    # current in Settings; this app has no live FX feed.
+    ("exchange_rate", "USD=1"),
+    ("exchange_rate", "NGN=0.00062"),
+    ("exchange_rate", "GBP=1.27"),
+    ("exchange_rate", "EUR=1.08"),
 ]
 
 
@@ -297,4 +308,30 @@ def delete_setting(setting_type: str, value: str):
         if r["setting_type"] == setting_type and r["value"] == value:
             ws.delete_rows(i + 2)
             break
+    _invalidate_cache()
+
+
+def set_base_currency(currency_code: str):
+    """base_currency is a single-value setting - remove any existing
+    entries before adding the new one so there's never more than one."""
+    ws = _worksheet("Settings")
+    records = ws.get_all_records()
+    rows_to_delete = [i + 2 for i, r in enumerate(records) if r["setting_type"] == "base_currency"]
+    for row_num in sorted(rows_to_delete, reverse=True):
+        ws.delete_rows(row_num)
+    ws.append_row(["base_currency", currency_code])
+    _invalidate_cache()
+
+
+def upsert_exchange_rate(currency_code: str, rate_to_base: float):
+    """One rate per currency, stored as 'CODE=rate'. Overwrites any
+    existing rate for that currency instead of duplicating it."""
+    ws = _worksheet("Settings")
+    records = ws.get_all_records()
+    for i, r in enumerate(records):
+        if r["setting_type"] == "exchange_rate" and r["value"].split("=")[0] == currency_code:
+            ws.update(f"B{i + 2}", [[f"{currency_code}={rate_to_base}"]])
+            _invalidate_cache()
+            return
+    ws.append_row(["exchange_rate", f"{currency_code}={rate_to_base}"])
     _invalidate_cache()

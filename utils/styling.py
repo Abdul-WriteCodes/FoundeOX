@@ -65,7 +65,31 @@ def status_pill(status: str) -> str:
     return f'<span class="status-pill {cls}">{status}</span>'
 
 
+CURRENCY_SYMBOLS = {
+    "USD": "$",
+    "GBP": "£",
+    "EUR": "€",
+    "NGN": "₦",
+}
+
+
+def fmt_money(value, currency_code="USD"):
+    """Format an amount WITH the currency it's actually denominated in.
+    Never assume USD - a mislabeled currency here is how NGN 10,000
+    ends up looking like $10,000."""
+    symbol = CURRENCY_SYMBOLS.get(currency_code)
+    try:
+        if symbol:
+            return f"{symbol}{value:,.2f}"
+        return f"{value:,.2f} {currency_code}"
+    except (TypeError, ValueError):
+        return f"0.00 {currency_code}" if not symbol else f"{symbol}0.00"
+
+
 def fmt_currency(value, symbol="$"):
+    """Legacy formatter - kept only for call sites not yet migrated.
+    Prefer fmt_money(value, currency_code) everywhere so the label
+    always matches the actual currency of the amount."""
     try:
         return f"{symbol}{value:,.2f}"
     except (TypeError, ValueError):
