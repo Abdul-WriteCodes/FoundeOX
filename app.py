@@ -4,7 +4,7 @@ from streamlit_echarts import st_echarts
 from utils import calculations as calc
 from utils import charts
 from utils import sheets
-from utils.styling import inject_css, metrics_grid, fmt_money, hero_title, graffiti_divider
+from utils.styling import inject_css, hero_stat, stat_list, fmt_money, hero_title, graffiti_divider
 
 st.set_page_config(
     page_title="Founder Revenue OS",
@@ -90,17 +90,26 @@ tab_overview, tab_streams, tab_monthly, tab_profit = st.tabs(
 )
 
 with tab_overview:
-    metrics_grid([
-        ("Lifetime Revenue", fmt_money(metrics["lifetime_revenue"], base_currency), ""),
-        ("Revenue This Month", fmt_money(metrics["revenue_month"], base_currency), ""),
-        ("Revenue This Year", fmt_money(metrics["revenue_year"], base_currency), ""),
-        ("Revenue Today", fmt_money(metrics["revenue_today"], base_currency), ""),
-        ("Outstanding (Consulting)", fmt_money(metrics["outstanding"], base_currency), ""),
-        ("Net Profit", fmt_money(metrics["net_profit"], base_currency), ""),
-        ("Total Expenses", fmt_money(metrics["total_expenses"], base_currency), ""),
-        ("Consulting Projects", str(metrics["total_projects"]), ""),
-        ("Consulting Clients", str(metrics["total_clients"]), ""),
-    ], columns=2)
+    hero_stat(
+        "Lifetime Revenue",
+        fmt_money(metrics["lifetime_revenue"], base_currency),
+        sub_items=[
+            ("This Month", fmt_money(metrics["revenue_month"], base_currency)),
+            ("This Year", fmt_money(metrics["revenue_year"], base_currency)),
+            ("Today", fmt_money(metrics["revenue_today"], base_currency)),
+        ],
+    )
+
+    stat_list(
+        [
+            ("Net Profit", fmt_money(metrics["net_profit"], base_currency)),
+            ("Outstanding (Consulting)", fmt_money(metrics["outstanding"], base_currency)),
+            ("Total Expenses", fmt_money(metrics["total_expenses"], base_currency)),
+            ("Consulting Projects", str(metrics["total_projects"])),
+            ("Consulting Clients", str(metrics["total_clients"])),
+        ],
+        dot_colors=["#F59E0B", "#7B6CF6", "#F43F5E", "#00C2A8", "#00C2A8"],
+    )
 
     if stream_monthly.empty:
         st.info(
