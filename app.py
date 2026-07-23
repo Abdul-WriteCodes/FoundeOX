@@ -4,7 +4,7 @@ from streamlit_echarts import st_echarts
 from utils import calculations as calc
 from utils import charts
 from utils import sheets
-from utils.styling import inject_css, metric_card, fmt_money
+from utils.styling import inject_css, metrics_grid, fmt_money
 
 st.set_page_config(
     page_title="Founder Revenue OS",
@@ -87,31 +87,17 @@ tab_overview, tab_streams, tab_monthly, tab_profit = st.tabs(
 )
 
 with tab_overview:
-    col1, col2 = st.columns(2)
-    with col1:
-        metric_card("Lifetime Revenue", fmt_money(metrics["lifetime_revenue"], base_currency))
-    with col2:
-        metric_card("Revenue This Month", fmt_money(metrics["revenue_month"], base_currency))
-
-    col3, col4 = st.columns(2)
-    with col3:
-        metric_card("Revenue This Year", fmt_money(metrics["revenue_year"], base_currency))
-    with col4:
-        metric_card("Revenue Today", fmt_money(metrics["revenue_today"], base_currency))
-
-    col5, col6 = st.columns(2)
-    with col5:
-        metric_card("Outstanding (Consulting)", fmt_money(metrics["outstanding"], base_currency))
-    with col6:
-        metric_card("Net Profit", fmt_money(metrics["net_profit"], base_currency))
-
-    col7, col8 = st.columns(2)
-    with col7:
-        metric_card("Total Expenses", fmt_money(metrics["total_expenses"], base_currency))
-    with col8:
-        metric_card("Consulting Projects", str(metrics["total_projects"]))
-
-    metric_card("Consulting Clients", str(metrics["total_clients"]))
+    metrics_grid([
+        ("Lifetime Revenue", fmt_money(metrics["lifetime_revenue"], base_currency), ""),
+        ("Revenue This Month", fmt_money(metrics["revenue_month"], base_currency), ""),
+        ("Revenue This Year", fmt_money(metrics["revenue_year"], base_currency), ""),
+        ("Revenue Today", fmt_money(metrics["revenue_today"], base_currency), ""),
+        ("Outstanding (Consulting)", fmt_money(metrics["outstanding"], base_currency), ""),
+        ("Net Profit", fmt_money(metrics["net_profit"], base_currency), ""),
+        ("Total Expenses", fmt_money(metrics["total_expenses"], base_currency), ""),
+        ("Consulting Projects", str(metrics["total_projects"]), ""),
+        ("Consulting Clients", str(metrics["total_clients"]), ""),
+    ], columns=2)
 
     if stream_monthly.empty:
         st.info(
