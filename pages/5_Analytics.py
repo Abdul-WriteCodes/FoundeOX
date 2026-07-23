@@ -4,7 +4,7 @@ from streamlit_echarts import st_echarts
 from utils import calculations as calc
 from utils import charts
 from utils import sheets
-from utils.styling import inject_css, metric_card, fmt_money
+from utils.styling import inject_css, metrics_grid, fmt_money
 
 st.set_page_config(page_title="Analytics — Founder Revenue OS", page_icon="📊", layout="wide")
 inject_css()
@@ -53,17 +53,17 @@ avg_value = calc.average_project_value(projects, rates, base_currency)
 by_stream_total = calc.revenue_by_stream_total(stream_monthly)
 top_stream = by_stream_total.iloc[0] if not by_stream_total.empty else None
 
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    metric_card("Top Revenue Stream", top_stream["stream"] if top_stream is not None else "—",
-                fmt_money(top_stream["revenue"], base_currency) if top_stream is not None else "")
-with c2:
-    metric_card("Largest Client", top_client or "—", fmt_money(top_client_rev, base_currency) if top_client else "")
-with c3:
-    metric_card("Avg. Consulting Project Value", fmt_money(avg_value, base_currency))
-with c4:
-    outstanding_total = enriched["outstanding_balance_base"].sum() if not enriched.empty else 0.0
-    metric_card("Outstanding Receivables", fmt_money(outstanding_total, base_currency))
+outstanding_total = enriched["outstanding_balance_base"].sum() if not enriched.empty else 0.0
+metrics_grid([
+    ("Top Revenue Stream",
+     top_stream["stream"] if top_stream is not None else "—",
+     fmt_money(top_stream["revenue"], base_currency) if top_stream is not None else ""),
+    ("Largest Client",
+     top_client or "—",
+     fmt_money(top_client_rev, base_currency) if top_client else ""),
+    ("Avg. Consulting Project Value", fmt_money(avg_value, base_currency), ""),
+    ("Outstanding Receivables", fmt_money(outstanding_total, base_currency), ""),
+], columns=2)
 
 st.divider()
 
