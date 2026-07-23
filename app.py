@@ -20,7 +20,7 @@ def check_password():
     if st.session_state.get("authenticated"):
         return True
 
-    hero_title("FOUNDER REVENUE OS", tagline="Consulting + SaaS, tracked in one place")
+    hero_title("Vault🪎", tagline="Consulting + SaaS, tracked in one place")
     pwd = st.text_input("Enter app password", type="password")
     if st.button("Enter"):
         if pwd == st.secrets["app_config"].get("app_password", ""):
