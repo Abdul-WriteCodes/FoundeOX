@@ -170,7 +170,95 @@ hr {{ border-color: var(--border) !important; margin: 1rem 0 !important; }}
     .metrics-grid .metric-value {{ font-size: 1.25rem; }}
 }}
 
-/* ---- Status pills ---- */
+/* ---- Hero stat: one big highlighted number ---- */
+.hero-stat {{
+    text-align: center;
+    padding: 1.6rem 1rem 1.2rem 1rem;
+    background: linear-gradient(135deg, {SURFACE}, {SURFACE2});
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    margin-bottom: 14px;
+}}
+.hero-stat-label {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+}}
+.hero-stat-value {{
+    font-family: 'Outfit', sans-serif;
+    font-weight: 900;
+    font-size: 2.9rem;
+    line-height: 1.05;
+    background: linear-gradient(135deg, #f0f4ff 30%, {TEAL});
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}}
+@media (max-width: 480px) {{
+    .hero-stat-value {{ font-size: 2.1rem; }}
+}}
+.hero-stat-subrow {{
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+}}
+.hero-stat-sub-item {{ text-align: center; }}
+.hero-stat-sub-value {{
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--text);
+}}
+.hero-stat-sub-label {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 2px;
+}}
+
+/* ---- Stat list: compact label/value rows instead of a card grid ---- */
+.stat-list {{
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+}}
+.stat-row {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 13px 18px;
+    border-bottom: 1px solid var(--border);
+}}
+.stat-row:last-child {{ border-bottom: none; }}
+.stat-row-label {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.76rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}}
+.stat-row-value {{
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--text);
+    text-align: right;
+}}
+.stat-row-accent {{ position: relative; padding-left: 26px; }}
+.stat-row-accent::before {{
+    content: "";
+    position: absolute;
+    left: 18px; top: 50%; transform: translateY(-50%);
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--dot-color, {TEAL});
+}}
 .status-pill {{
     display: inline-block;
     padding: 3px 11px;
@@ -302,6 +390,56 @@ def graffiti_divider():
     """A thin gradient section divider. (Name kept from the previous
     theme so existing call sites don't need to change.)"""
     st.markdown('<div class="graffiti-divider"></div>', unsafe_allow_html=True)
+
+
+def hero_stat(label: str, value: str, sub_items=None):
+    """One big highlighted number (e.g. Lifetime Revenue) with a row of
+    smaller secondary figures beneath it - use as the primary focal
+    point instead of putting every metric in an equal-weight card grid.
+    sub_items: list of (label, value) tuples shown in a row below."""
+    sub_html = ""
+    if sub_items:
+        items_html = "".join(
+            f'<div class="hero-stat-sub-item">'
+            f'<div class="hero-stat-sub-value">{v}</div>'
+            f'<div class="hero-stat-sub-label">{l}</div>'
+            f'</div>'
+            for l, v in sub_items
+        )
+        sub_html = f'<div class="hero-stat-subrow">{items_html}</div>'
+    st.markdown(
+        f'<div class="hero-stat fade-in">'
+        f'<div class="hero-stat-label">{label}</div>'
+        f'<div class="hero-stat-value">{value}</div>'
+        f'{sub_html}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def stat_list(items, dot_colors=None):
+    """A compact list of label/value rows in one bordered block, instead
+    of a grid of separate cards. items: list of (label, value) tuples.
+    dot_colors: optional list of accent colors (same length as items) to
+    show a small colored dot next to each row for quick visual grouping."""
+    rows = []
+    for i, (label, value) in enumerate(items):
+        if dot_colors:
+            color = dot_colors[i % len(dot_colors)]
+            rows.append(
+                f'<div class="stat-row stat-row-accent" style="--dot-color:{color};">'
+                f'<span class="stat-row-label">{label}</span>'
+                f'<span class="stat-row-value">{value}</span>'
+                f'</div>'
+            )
+        else:
+            rows.append(
+                f'<div class="stat-row">'
+                f'<span class="stat-row-label">{label}</span>'
+                f'<span class="stat-row-value">{value}</span>'
+                f'</div>'
+            )
+    st.markdown(f'<div class="stat-list fade-in">{"".join(rows)}</div>', unsafe_allow_html=True)
 
 
 def metric_card(label: str, value: str, sub: str = ""):
