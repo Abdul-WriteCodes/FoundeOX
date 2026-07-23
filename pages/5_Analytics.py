@@ -75,6 +75,7 @@ if not combined.empty:
     opts = charts.area_growth_chart(combined["month"].tolist(), combined["cumulative"].round(2).tolist(), axis_name=base_currency)
     st_echarts(options=opts, height="320px")
 
+graffiti_divider()
 st.subheader(f"Per-Stream Profit ({base_currency})")
 st.caption("Revenue by stream, minus expenses tagged to that same stream. Untagged/General expenses aren't split — see Combined Net Profit on the dashboard for the full picture.")
 exp_by_stream = calc.expense_by_stream(expenses, rates, base_currency)
@@ -88,6 +89,7 @@ for col in ["revenue", "tagged_expenses", "stream_profit"]:
     display_table[col] = display_table[col].map(lambda v: fmt_money(v, base_currency))
 st.dataframe(display_table, use_container_width=True, hide_index=True)
 
+graffiti_divider()
 col_a, col_b = st.columns(2)
 with col_a:
     st.subheader(f"Outstanding Receivables by Client ({base_currency})")
@@ -100,7 +102,8 @@ with col_a:
         st_echarts(options=opts, height="320px")
     else:
         st.caption("Nothing outstanding — fully collected! 🎉")
-
+        
+graffiti_divider()
 with col_b:
     st.subheader(f"Expense Trends ({base_currency})")
     exp_trend = calc.monthly_expense_series(expenses, rates, base_currency)
@@ -110,7 +113,8 @@ with col_b:
         st_echarts(options=opts, height="320px")
     else:
         st.caption("No expenses recorded yet.")
-
+        
+graffiti_divider()
 st.subheader(f"Expense Distribution by Category ({base_currency})")
 dist = calc.expense_distribution(expenses, rates, base_currency)
 if not dist.empty:
