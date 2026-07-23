@@ -9,12 +9,12 @@ st_echarts(options=..., height=...). No custom JS formatters are used
 through axis names and chart titles instead, in plain text.
 """
 
-# A cohesive, slightly saturated palette that reads well on both light
-# and dark Streamlit themes.
-PALETTE = ["#6366f1", "#22d3ee", "#f472b6", "#fbbf24", "#34d399", "#f87171", "#a78bfa", "#38bdf8", "#fb923c", "#4ade80"]
+# Neon graffiti palette - matches utils/styling.py so charts feel like
+# part of the same visual identity, not a bolted-on default theme.
+PALETTE = ["#ff2e88", "#00e5ff", "#d4ff00", "#ff6a00", "#a259ff", "#39ff14", "#ff3860", "#00b4ff", "#ffd400", "#ff7edb"]
 
-TEXT_COLOR = "#94a3b8"
-GRID_LINE_COLOR = "rgba(148, 163, 184, 0.15)"
+TEXT_COLOR = "#c9c9d6"
+GRID_LINE_COLOR = "rgba(201, 201, 214, 0.15)"
 FONT_FAMILY = "'Inter', 'Segoe UI', system-ui, sans-serif"
 
 
