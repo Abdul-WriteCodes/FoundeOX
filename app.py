@@ -3,8 +3,7 @@ import streamlit as st
 
 from utils import calculations as calc
 from utils import sheets
-from utils.sheets import CONSULTING_STREAM
-from utils.styling import inject_css, metric_card, fmt_currency
+from utils.styling import inject_css, metric_card, fmt_money
 
 st.set_page_config(
     page_title="Founder Revenue OS",
@@ -53,25 +52,46 @@ payments = sheets.read_sheet("Payments")
 saas_monthly = sheets.read_sheet("SaaSMonthly")
 saas_transactions = sheets.read_sheet("SaaSTransactions")
 expenses = sheets.read_sheet("Expenses")
+settings = sheets.read_sheet("Settings")
 
-enriched = calc.enrich_projects(projects, payments)
-stream_monthly = calc.stream_revenue_monthly(payments, saas_monthly, saas_transactions)
-metrics = calc.dashboard_metrics(projects, payments, saas_monthly, saas_transactions, expenses)
+base_currency = calc.get_base_currency(settings)
+rates = calc.get_fx_rates(settings)
+
+payments_with_currency = None
+if not payments.empty and not projects.empty:
+    payments_with_currency = payments.merge(projects[["project_id", "currency"]], on="project_id", how="left")
+
+missing = calc.missing_fx_currencies(
+    projects, payments_with_currency, saas_monthly, saas_transactions, expenses, rates=rates
+)
+if missing:
+    st.warning(
+        f"No exchange rate saved for: **{', '.join(missing)}**. Amounts in these currencies "
+        f"are being treated as 1:1 with {base_currency} in combined totals below - "
+        f"add their rates in **Settings → Exchange Rates** to fix this."
+    )
+
+enriched = calc.enrich_projects(projects, payments, rates, base_currency)
+stream_monthly = calc.stream_revenue_monthly(payments, projects, saas_monthly, saas_transactions, rates, base_currency)
+metrics = calc.dashboard_metrics(projects, payments, saas_monthly, saas_transactions, expenses, rates, base_currency)
 
 st.title("💼 Founder Revenue OS")
-st.caption("Combined revenue across Research & Consulting and every SaaS product you're shipping.")
+st.caption(
+    f"Combined revenue across Research & Consulting and every SaaS product you're shipping. "
+    f"All totals below are converted to your reporting currency, **{base_currency}**."
+)
 
 col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
-    metric_card("Lifetime Revenue", fmt_currency(metrics["lifetime_revenue"]))
+    metric_card("Lifetime Revenue", fmt_money(metrics["lifetime_revenue"], base_currency))
 with col2:
-    metric_card("Revenue This Month", fmt_currency(metrics["revenue_month"]))
+    metric_card("Revenue This Month", fmt_money(metrics["revenue_month"], base_currency))
 with col3:
-    metric_card("Revenue This Year", fmt_currency(metrics["revenue_year"]))
+    metric_card("Revenue This Year", fmt_money(metrics["revenue_year"], base_currency))
 with col4:
-    metric_card("Outstanding (Consulting)", fmt_currency(metrics["outstanding"]))
+    metric_card("Outstanding (Consulting)", fmt_money(metrics["outstanding"], base_currency))
 with col5:
-    metric_card("Net Profit", fmt_currency(metrics["net_profit"]))
+    metric_card("Net Profit", fmt_money(metrics["net_profit"], base_currency))
 
 st.write("")
 col6, col7, col8, col9 = st.columns(4)
@@ -80,9 +100,9 @@ with col6:
 with col7:
     metric_card("Consulting Clients", str(metrics["total_clients"]))
 with col8:
-    metric_card("Total Expenses", fmt_currency(metrics["total_expenses"]))
+    metric_card("Total Expenses", fmt_money(metrics["total_expenses"], base_currency))
 with col9:
-    metric_card("Revenue Today", fmt_currency(metrics["revenue_today"]))
+    metric_card("Revenue Today", fmt_money(metrics["revenue_today"], base_currency))
 
 st.write("")
 st.divider()
@@ -96,33 +116,33 @@ else:
     left, right = st.columns(2)
 
     with left:
-        st.subheader("Revenue by Stream")
+        st.subheader(f"Revenue by Stream ({base_currency})")
         by_stream = calc.revenue_by_stream_total(stream_monthly)
         fig = px.pie(by_stream, names="stream", values="revenue", hole=0.45)
         fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=340)
         st.plotly_chart(fig, use_container_width=True)
 
     with right:
-        st.subheader("Monthly Revenue Trend (Combined)")
+        st.subheader(f"Monthly Revenue Trend, Combined ({base_currency})")
         combined = calc.combined_monthly_revenue(stream_monthly)
-        fig = px.bar(combined, x="month", y="revenue", labels={"month": "Month", "revenue": "Revenue"})
+        fig = px.bar(combined, x="month", y="revenue", labels={"month": "Month", "revenue": f"Revenue ({base_currency})"})
         fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=340)
         st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Revenue by Stream, by Month")
+    st.subheader(f"Revenue by Stream, by Month ({base_currency})")
     fig = px.bar(
         stream_monthly, x="month", y="revenue", color="stream",
-        labels={"month": "Month", "revenue": "Revenue", "stream": "Stream"},
+        labels={"month": "Month", "revenue": f"Revenue ({base_currency})", "stream": "Stream"},
         barmode="stack",
     )
     fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=380)
     st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Profit Trend (Revenue vs. Expenses)")
-    trend = calc.profit_trend(stream_monthly, expenses)
+    st.subheader(f"Profit Trend, Revenue vs. Expenses ({base_currency})")
+    trend = calc.profit_trend(stream_monthly, expenses, rates, base_currency)
     if not trend.empty:
         fig = px.line(trend, x="month", y=["revenue", "expense", "profit"], markers=True,
-                      labels={"month": "Month", "value": "Amount", "variable": "Series"})
+                      labels={"month": "Month", "value": f"Amount ({base_currency})", "variable": "Series"})
         fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=340)
         st.plotly_chart(fig, use_container_width=True)
     else:

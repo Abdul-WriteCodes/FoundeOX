@@ -178,6 +178,28 @@ both added together.
 
 ---
 
+## Multi-currency handling (read this if you use more than one currency)
+
+Every project, payment, expense, and SaaS entry is recorded and
+**displayed in its own real currency** — a project priced in NGN shows
+its amounts in NGN (₦), a GBP project shows £, and so on. Nothing is
+silently relabeled as dollars.
+
+The moment the app needs to *combine* numbers across currencies —
+dashboard totals, monthly trends, "largest client", any cross-project or
+cross-stream sum — it first converts every amount into a single
+**reporting currency** (set in **Settings → 💱 Reporting Currency & FX
+Rates**) using exchange rates you maintain there. Raw amounts are never
+summed across different currencies; that's what previously caused NGN
+10,000 to be added into a total as if it were $10,000.
+
+**You must keep the exchange rates current yourself** — this app has no
+live FX feed. If a currency you're using has no saved rate, every page
+that would otherwise mis-convert it shows a warning telling you exactly
+which currency is missing a rate, so it's never silent.
+
+---
+
 ## 4. Configure secrets
 
 1. Rename `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml`.
