@@ -106,9 +106,15 @@ def get_spreadsheet():
     return client.open_by_url(sheet_url)
 
 
-def bootstrap_sheets():
+@st.cache_resource(show_spinner=False)
+def _bootstrap_once():
     """Create any missing worksheets with correct headers, migrate missing
-    columns into existing sheets, and seed Settings defaults on first run."""
+    columns into existing sheets, and seed Settings defaults on first run.
+
+    Wrapped in cache_resource so this - which is several API calls - runs
+    ONCE per running app process, not on every rerun/page load. Sheets
+    already exist after the first successful run, so re-checking on every
+    interaction just burns read quota for no benefit."""
     ss = get_spreadsheet()
     existing_titles = [ws.title for ws in ss.worksheets()]
 
@@ -137,12 +143,24 @@ def bootstrap_sheets():
         if missing_defaults and not any(r["setting_type"] == "product" for r in rows):
             settings_ws.append_rows([list(p) for p in missing_defaults])
 
+    return True
+
+
+def bootstrap_sheets():
+    _bootstrap_once()
+
 
 def _worksheet(name):
     return get_spreadsheet().worksheet(name)
 
 
+@st.cache_data(ttl=20, show_spinner=False)
 def read_sheet(name: str) -> pd.DataFrame:
+    """Read a worksheet into a DataFrame. Cached for 20 seconds - every
+    Streamlit widget interaction reruns the whole page script, so without
+    this cache a single page view can trigger 5-6+ fresh API reads. Any
+    write elsewhere calls _invalidate_cache() to force an immediate
+    fresh read instead of waiting out the TTL."""
     ws = _worksheet(name)
     records = ws.get_all_records()
     df = pd.DataFrame(records)
@@ -155,6 +173,17 @@ def read_sheet(name: str) -> pd.DataFrame:
     return df[schema]
 
 
+def _invalidate_cache():
+    """Call after any write so the next read reflects it immediately,
+    rather than serving stale cached data for up to 20 seconds."""
+    read_sheet.clear()
+
+
+def refresh_data():
+    """Public wrapper for a manual 'Refresh data' button in the UI."""
+    read_sheet.clear()
+
+
 def _new_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:8].upper()}"
 
@@ -164,6 +193,7 @@ def append_row(sheet_name: str, row: dict):
     schema = SHEET_SCHEMAS[sheet_name]
     values = [str(row.get(col, "")) for col in schema]
     ws.append_row(values)
+    _invalidate_cache()
 
 
 def update_row(sheet_name: str, id_col: str, id_value: str, updates: dict):
@@ -177,6 +207,7 @@ def update_row(sheet_name: str, id_col: str, id_value: str, updates: dict):
     row_dict.update({k: str(v) for k, v in updates.items()})
     new_values = [row_dict.get(col, "") for col in schema]
     ws.update(f"A{cell.row}", [new_values])
+    _invalidate_cache()
 
 
 def delete_row(sheet_name: str, id_col: str, id_value: str):
@@ -186,6 +217,7 @@ def delete_row(sheet_name: str, id_col: str, id_value: str):
     if cell is None:
         return
     ws.delete_rows(cell.row)
+    _invalidate_cache()
 
 
 def delete_rows_where(sheet_name: str, match_col: str, match_value: str):
@@ -196,6 +228,7 @@ def delete_rows_where(sheet_name: str, match_col: str, match_value: str):
     rows_to_delete = [i + 1 for i, v in enumerate(col_values) if v == match_value and i > 0]
     for row_num in sorted(rows_to_delete, reverse=True):
         ws.delete_rows(row_num)
+    _invalidate_cache()
 
 
 # ---- convenience wrappers ----
@@ -264,3 +297,4 @@ def delete_setting(setting_type: str, value: str):
         if r["setting_type"] == setting_type and r["value"] == value:
             ws.delete_rows(i + 2)
             break
+    _invalidate_cache()
