@@ -197,9 +197,14 @@ def expense_by_stream(expenses: pd.DataFrame) -> pd.DataFrame:
 def profit_trend(stream_monthly: pd.DataFrame, expenses: pd.DataFrame) -> pd.DataFrame:
     rev = combined_monthly_revenue(stream_monthly)
     exp = monthly_expense_series(expenses)
-    merged = pd.merge(rev, exp, on="month", how="outer").fillna(0).sort_values("month")
+    merged = pd.merge(rev, exp, on="month", how="outer").sort_values("month")
     if merged.empty:
         return merged
+    # When either side starts out empty, its numeric column defaults to
+    # object dtype - force both to float so Plotly doesn't choke on
+    # mixed column types across revenue/expense/profit.
+    merged["revenue"] = pd.to_numeric(merged["revenue"], errors="coerce").fillna(0)
+    merged["expense"] = pd.to_numeric(merged["expense"], errors="coerce").fillna(0)
     merged["profit"] = merged["revenue"] - merged["expense"]
     return merged
 
