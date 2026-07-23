@@ -114,7 +114,6 @@ with col_b:
     else:
         st.caption("No expenses recorded yet.")
         
-graffiti_divider()
 st.subheader(f"Expense Distribution by Category ({base_currency})")
 dist = calc.expense_distribution(expenses, rates, base_currency)
 if not dist.empty:
