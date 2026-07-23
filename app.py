@@ -82,70 +82,83 @@ st.caption(
     f"All totals below are converted to your reporting currency, **{base_currency}**."
 )
 
-col1, col2, col3, col4, col5 = st.columns(5)
-with col1:
-    metric_card("Lifetime Revenue", fmt_money(metrics["lifetime_revenue"], base_currency))
-with col2:
-    metric_card("Revenue This Month", fmt_money(metrics["revenue_month"], base_currency))
-with col3:
-    metric_card("Revenue This Year", fmt_money(metrics["revenue_year"], base_currency))
-with col4:
-    metric_card("Outstanding (Consulting)", fmt_money(metrics["outstanding"], base_currency))
-with col5:
-    metric_card("Net Profit", fmt_money(metrics["net_profit"], base_currency))
+tab_overview, tab_streams, tab_monthly, tab_profit = st.tabs(
+    ["📊 Overview", "🥧 Revenue by Stream", "🗓️ Monthly Breakdown", "💹 Profit Trend"]
+)
 
-st.write("")
-col6, col7, col8, col9 = st.columns(4)
-with col6:
-    metric_card("Consulting Projects", str(metrics["total_projects"]))
-with col7:
+with tab_overview:
+    col1, col2 = st.columns(2)
+    with col1:
+        metric_card("Lifetime Revenue", fmt_money(metrics["lifetime_revenue"], base_currency))
+    with col2:
+        metric_card("Revenue This Month", fmt_money(metrics["revenue_month"], base_currency))
+
+    col3, col4 = st.columns(2)
+    with col3:
+        metric_card("Revenue This Year", fmt_money(metrics["revenue_year"], base_currency))
+    with col4:
+        metric_card("Revenue Today", fmt_money(metrics["revenue_today"], base_currency))
+
+    col5, col6 = st.columns(2)
+    with col5:
+        metric_card("Outstanding (Consulting)", fmt_money(metrics["outstanding"], base_currency))
+    with col6:
+        metric_card("Net Profit", fmt_money(metrics["net_profit"], base_currency))
+
+    col7, col8 = st.columns(2)
+    with col7:
+        metric_card("Total Expenses", fmt_money(metrics["total_expenses"], base_currency))
+    with col8:
+        metric_card("Consulting Projects", str(metrics["total_projects"]))
+
     metric_card("Consulting Clients", str(metrics["total_clients"]))
-with col8:
-    metric_card("Total Expenses", fmt_money(metrics["total_expenses"], base_currency))
-with col9:
-    metric_card("Revenue Today", fmt_money(metrics["revenue_today"], base_currency))
 
-st.write("")
-st.divider()
+    if stream_monthly.empty:
+        st.info(
+            "No revenue logged yet. Head to **Consulting Projects** to add a client "
+            "engagement, or **SaaS Revenue** to log product revenue."
+        )
 
-if stream_monthly.empty:
-    st.info(
-        "No revenue logged yet. Head to **Consulting Projects** to add a client "
-        "engagement, or **SaaS Revenue** to log product revenue."
-    )
-else:
-    left, right = st.columns(2)
-
-    with left:
+with tab_streams:
+    if stream_monthly.empty:
+        st.info("No revenue logged yet.")
+    else:
         st.subheader(f"Revenue by Stream ({base_currency})")
         by_stream = calc.revenue_by_stream_total(stream_monthly)
         opts = charts.donut_chart(by_stream["stream"].tolist(), by_stream["revenue"].round(2).tolist(), unit_label=base_currency)
         st_echarts(options=opts, height="360px")
 
-    with right:
         st.subheader(f"Monthly Revenue Trend, Combined ({base_currency})")
         combined = calc.combined_monthly_revenue(stream_monthly)
         opts = charts.bar_chart(combined["month"].tolist(), combined["revenue"].round(2).tolist(), axis_name=base_currency)
-        st_echarts(options=opts, height="360px")
+        st_echarts(options=opts, height="340px")
 
-    st.subheader(f"Revenue by Stream, by Month ({base_currency})")
-    pivot = stream_monthly.pivot_table(index="month", columns="stream", values="revenue", aggfunc="sum").fillna(0).sort_index()
-    series_data = {stream: pivot[stream].round(2).tolist() for stream in pivot.columns}
-    opts = charts.stacked_bar_chart(pivot.index.tolist(), series_data, axis_name=base_currency, height="400px")
-    st_echarts(options=opts, height="400px")
-
-    st.subheader(f"Profit Trend, Revenue vs. Expenses ({base_currency})")
-    trend = calc.profit_trend(stream_monthly, expenses, rates, base_currency)
-    if not trend.empty:
-        series_data = {
-            "Revenue": trend["revenue"].round(2).tolist(),
-            "Expense": trend["expense"].round(2).tolist(),
-            "Profit": trend["profit"].round(2).tolist(),
-        }
-        opts = charts.multi_line_area_chart(trend["month"].tolist(), series_data, axis_name=base_currency, height="360px")
-        st_echarts(options=opts, height="360px")
+with tab_monthly:
+    if stream_monthly.empty:
+        st.info("No revenue logged yet.")
     else:
-        st.caption("Record some expenses to see this chart.")
+        st.subheader(f"Revenue by Stream, by Month ({base_currency})")
+        pivot = stream_monthly.pivot_table(index="month", columns="stream", values="revenue", aggfunc="sum").fillna(0).sort_index()
+        series_data = {stream: pivot[stream].round(2).tolist() for stream in pivot.columns}
+        opts = charts.stacked_bar_chart(pivot.index.tolist(), series_data, axis_name=base_currency, height="400px")
+        st_echarts(options=opts, height="400px")
+
+with tab_profit:
+    if stream_monthly.empty:
+        st.info("No revenue logged yet.")
+    else:
+        st.subheader(f"Profit Trend, Revenue vs. Expenses ({base_currency})")
+        trend = calc.profit_trend(stream_monthly, expenses, rates, base_currency)
+        if not trend.empty:
+            series_data = {
+                "Revenue": trend["revenue"].round(2).tolist(),
+                "Expense": trend["expense"].round(2).tolist(),
+                "Profit": trend["profit"].round(2).tolist(),
+            }
+            opts = charts.multi_line_area_chart(trend["month"].tolist(), series_data, axis_name=base_currency, height="360px")
+            st_echarts(options=opts, height="360px")
+        else:
+            st.caption("Record some expenses to see this chart.")
 
 st.sidebar.success("Connected to Google Sheets")
 st.sidebar.caption(
