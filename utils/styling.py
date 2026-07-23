@@ -1,117 +1,161 @@
 """
-Visual identity: a full graffiti/street-art theme, applied globally via
-one injected <style> block so every page (dashboard + all pages/) picks
-it up automatically through inject_css().
+Visual identity, modeled on the Bayantx360 Suite AdminHub look: a dark,
+glassy fintech-SaaS theme rather than anything playful - restrained
+surfaces, one teal/violet accent pairing, Outfit for headings/UI text,
+JetBrains Mono for labels and data-adjacent text. Applied globally via
+one injected <style> block so every page picks it up through
+inject_css().
 
-Design choices, so future edits stay consistent:
-- Display font "Bangers" for titles/headers (bold, spray-paint energy).
-- "Permanent Marker" for labels/accents (handwritten marker feel).
-- A dark "wall" background with soft neon overspray blobs in the
-  corners, not a busy repeating texture - keeps numbers legible.
-- One consistent neon palette (hot pink / electric cyan / acid yellow /
-  orange) reused across cards, tabs, buttons, and status pills so it
-  reads as one deliberate style, not random color noise.
-- CSS targets only stable, well-documented Streamlit hooks (.stApp,
-  .stButton>button, [data-baseweb="tab"], plain h1/h2/h3, and our own
-  custom classes) rather than deep internal testids that change between
-  Streamlit versions.
+Function names (hero_title, graffiti_divider, metric_card, etc.) are
+kept stable across the earlier graffiti-themed version so every page
+that already imports them keeps working - only the visual output
+changed, not the API.
 """
 
 import streamlit as st
 
-NEON_PINK = "#ff2e88"
-NEON_CYAN = "#00e5ff"
-NEON_YELLOW = "#d4ff00"
-NEON_ORANGE = "#ff6a00"
-INK = "#0b0b12"
+TEAL = "#00C2A8"
+VIOLET = "#7B6CF6"
+AMBER = "#F59E0B"
+ROSE = "#F43F5E"
+GREEN = "#10B981"
+BG = "#080b12"
+SURFACE = "#0d1117"
+SURFACE2 = "#111827"
+
+# Cycled across metric cards so a grid of them doesn't look monotone,
+# without being as loud as a full rainbow.
+ACCENT_CYCLE = [TEAL, VIOLET, AMBER]
 
 CUSTOM_CSS = f"""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Bangers&family=Permanent+Marker&family=Inter:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
-/* ---- Wall background: dark base + soft neon overspray in corners ---- */
-.stApp {{
-    background-color: {INK};
-    background-image:
-        radial-gradient(circle at 8% 12%, rgba(255,46,136,0.20), transparent 40%),
-        radial-gradient(circle at 92% 18%, rgba(0,229,255,0.16), transparent 38%),
-        radial-gradient(circle at 15% 90%, rgba(212,255,0,0.10), transparent 35%),
-        radial-gradient(circle at 88% 85%, rgba(255,106,0,0.14), transparent 38%),
-        repeating-linear-gradient(135deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 2px, transparent 2px, transparent 6px);
+:root {{
+    --bg: {BG};
+    --surface: {SURFACE};
+    --surface2: {SURFACE2};
+    --surface3: #1a2332;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #f0f4ff;
+    --muted: #64748b;
+    --teal: {TEAL};
+    --violet: {VIOLET};
+    --amber: {AMBER};
+    --rose: {ROSE};
+    --green: {GREEN};
+}}
+
+html, body, [class*="css"], .stApp {{
+    font-family: 'Outfit', sans-serif !important;
+    background: var(--bg) !important;
+    color: var(--text) !important;
+}}
+
+::-webkit-scrollbar {{ width: 4px; }}
+::-webkit-scrollbar-track {{ background: transparent; }}
+::-webkit-scrollbar-thumb {{ background: var(--surface3); border-radius: 4px; }}
+
+[data-testid="stSidebar"] {{
+    background: var(--surface) !important;
+    border-right: 1px solid var(--border) !important;
+}}
+[data-testid="stSidebar"] * {{ color: var(--text) !important; }}
+
+#MainMenu, footer {{ visibility: hidden; }}
+[data-testid="stDecoration"] {{ display: none; }}
+header[data-testid="stHeader"] {{ background: transparent !important; }}
+header[data-testid="stHeader"] > div:first-child {{ visibility: hidden; }}
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapsedControl"],
+button[kind="header"],
+[data-testid="stHeader"] button {{
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: all !important;
+    z-index: 999999 !important;
 }}
 
 h1, h2, h3 {{
-    font-family: 'Bangers', 'Inter', sans-serif !important;
-    letter-spacing: 0.03em;
-    color: #f5f5f7 !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.5px;
+    color: var(--text) !important;
 }}
 
-/* ---- Hero title (landing + dashboard) ---- */
+/* ---- Hero title (landing + dashboard): gradient-clipped headline ---- */
 .hero-title {{
-    font-family: 'Bangers', sans-serif;
-    font-size: 3.2rem;
-    line-height: 1.05;
-    color: {NEON_YELLOW};
-    text-shadow:
-        3px 3px 0 {NEON_PINK},
-        6px 6px 0 rgba(0,0,0,0.55),
-        0 0 30px rgba(212,255,0,0.35);
-    transform: rotate(-1.5deg);
-    margin-bottom: 0;
+    font-family: 'Outfit', sans-serif;
+    font-size: 2.6rem;
+    font-weight: 900;
+    letter-spacing: -1.2px;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #f0f4ff 35%, {TEAL});
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.2rem;
 }}
 @media (max-width: 480px) {{
-    .hero-title {{ font-size: 2.1rem; }}
+    .hero-title {{ font-size: 1.9rem; }}
 }}
 .hero-tagline {{
-    font-family: 'Permanent Marker', cursive;
-    color: {NEON_CYAN};
-    font-size: 1.05rem;
-    margin-top: 6px;
-    transform: rotate(-0.5deg);
-}}
-.hero-underline {{ margin: 6px 0 18px 0; }}
-
-/* ---- Spray-stroke divider (use graffiti_divider() instead of st.divider) ---- */
-.graffiti-divider {{ margin: 22px 0; }}
-
-/* ---- Metric / sticker cards ---- */
-.metric-card {{
-    background: linear-gradient(160deg, #1b1225 0%, #120b18 100%);
-    border: 2.5px solid {NEON_PINK};
-    border-radius: 14px 5px 16px 6px;
-    padding: 16px 18px;
-    box-shadow: 4px 4px 0 rgba(0,0,0,0.55), 0 0 18px rgba(255,46,136,0.15);
-    transform: rotate(-0.6deg);
-    transition: transform 0.15s ease;
-}}
-.metrics-grid > .metric-card:nth-child(3n+2) {{
-    border-color: {NEON_CYAN};
-    box-shadow: 4px 4px 0 rgba(0,0,0,0.55), 0 0 18px rgba(0,229,255,0.15);
-    transform: rotate(0.7deg);
-}}
-.metrics-grid > .metric-card:nth-child(3n+3) {{
-    border-color: {NEON_YELLOW};
-    box-shadow: 4px 4px 0 rgba(0,0,0,0.55), 0 0 18px rgba(212,255,0,0.15);
-    transform: rotate(-0.3deg);
-}}
-.metric-label {{
-    font-family: 'Permanent Marker', cursive;
+    font-family: 'JetBrains Mono', monospace;
     font-size: 0.72rem;
-    color: #c9c9d6;
+    color: var(--muted);
+    letter-spacing: 0.15em;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    margin-top: 4px;
+}}
+.hero-underline {{ display: none; }}
+
+/* ---- Section divider: thin gradient line instead of default hr ---- */
+.graffiti-divider {{
+    height: 1px;
+    margin: 22px 0;
+    background: linear-gradient(90deg, {TEAL}55, {VIOLET}33, transparent);
+    border: none;
+}}
+hr {{ border-color: var(--border) !important; margin: 1rem 0 !important; }}
+
+/* ---- Metric / KPI cards ---- */
+.metric-card {{
+    background: linear-gradient(135deg, {SURFACE}, {SURFACE2});
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.2rem 1.3rem;
+    position: relative;
+    overflow: hidden;
+}}
+.metric-card::before {{
+    content: "";
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, {TEAL}, {TEAL}80);
+}}
+.metrics-grid > .metric-card:nth-child(3n+2)::before {{ background: linear-gradient(90deg, {VIOLET}, {VIOLET}80); }}
+.metrics-grid > .metric-card:nth-child(3n+3)::before {{ background: linear-gradient(90deg, {AMBER}, {AMBER}80); }}
+.metric-label {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     margin-bottom: 6px;
 }}
 .metric-value {{
-    font-family: 'Bangers', sans-serif;
-    font-size: 1.7rem;
-    color: #ffffff;
-    letter-spacing: 0.02em;
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 800;
+    color: {TEAL};
+    line-height: 1.1;
 }}
+.metrics-grid > .metric-card:nth-child(3n+2) .metric-value {{ color: {VIOLET}; }}
+.metrics-grid > .metric-card:nth-child(3n+3) .metric-value {{ color: {AMBER}; }}
 .metric-sub {{
-    font-size: 0.76rem;
-    color: #9ca3af;
-    margin-top: 2px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 3px;
 }}
 .metrics-grid {{
     display: grid;
@@ -121,83 +165,119 @@ h1, h2, h3 {{
 }}
 @media (max-width: 480px) {{
     .metrics-grid {{ gap: 10px; }}
-    .metrics-grid .metric-card {{ padding: 12px 14px; }}
-    .metrics-grid .metric-label {{ font-size: 0.65rem; }}
-    .metrics-grid .metric-value {{ font-size: 1.3rem; }}
+    .metrics-grid .metric-card {{ padding: 1rem 1.1rem; }}
+    .metrics-grid .metric-label {{ font-size: 0.62rem; }}
+    .metrics-grid .metric-value {{ font-size: 1.25rem; }}
 }}
 
-/* ---- Status pills as spray-stamped tags ---- */
+/* ---- Status pills ---- */
 .status-pill {{
     display: inline-block;
-    padding: 3px 12px;
-    border-radius: 999px 6px 999px 6px;
-    font-family: 'Permanent Marker', cursive;
-    font-size: 0.72rem;
-    letter-spacing: 0.02em;
-    border: 2px solid #000;
-    transform: rotate(-2deg);
-}}
-.status-paid {{ background: {NEON_YELLOW}; color: #12310c; }}
-.status-partial {{ background: {NEON_ORANGE}; color: #2a1400; }}
-.status-unpaid {{ background: {NEON_PINK}; color: #2a0016; }}
-
-/* ---- Buttons: stencil / sticker style ---- */
-.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {{
-    font-family: 'Bangers', sans-serif !important;
-    letter-spacing: 0.05em;
+    padding: 3px 11px;
+    border-radius: 999px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
     text-transform: uppercase;
-    background: linear-gradient(135deg, {NEON_PINK}, {NEON_ORANGE}) !important;
-    color: #0b0b12 !important;
-    border: 2.5px solid #000 !important;
-    border-radius: 10px 3px 10px 3px !important;
-    box-shadow: 3px 3px 0 rgba(0,0,0,0.7) !important;
-    transition: transform 0.1s ease, box-shadow 0.1s ease !important;
+    letter-spacing: 0.04em;
+    border: 1px solid transparent;
+}}
+.status-paid {{ background: rgba(16,185,129,0.15); color: {GREEN}; border-color: rgba(16,185,129,0.3); }}
+.status-partial {{ background: rgba(245,158,11,0.15); color: {AMBER}; border-color: rgba(245,158,11,0.3); }}
+.status-unpaid {{ background: rgba(244,63,94,0.15); color: {ROSE}; border-color: rgba(244,63,94,0.3); }}
+
+/* ---- Inputs ---- */
+.stTextInput > div > div > input,
+.stNumberInput > div > div > input,
+.stTextArea > div > div > textarea,
+.stDateInput input {{
+    background: var(--surface2) !important;
+    border: 1px solid var(--border2) !important;
+    border-radius: 10px !important;
+    color: var(--text) !important;
+    font-family: 'Outfit', sans-serif !important;
+    padding: 0.6rem 1rem !important;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}}
+.stTextInput > div > div > input:focus,
+.stNumberInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {{
+    border-color: var(--teal) !important;
+    box-shadow: 0 0 0 3px rgba(0,194,168,0.15) !important;
+    outline: none !important;
+}}
+.stTextInput label, .stNumberInput label, .stTextArea label,
+.stSelectbox label, .stDateInput label, .stRadio label {{
+    color: var(--muted) !important;
+    font-size: 0.78rem !important;
+    font-weight: 500 !important;
+    letter-spacing: 0.06em !important;
+    text-transform: uppercase !important;
+    font-family: 'JetBrains Mono', monospace !important;
+}}
+div[data-baseweb="select"] > div {{
+    background: var(--surface2) !important;
+    border: 1px solid var(--border2) !important;
+    border-radius: 10px !important;
+}}
+
+/* ---- Buttons ---- */
+.stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {{
+    background: linear-gradient(135deg, var(--teal), #00a896) !important;
+    color: #000 !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-family: 'Outfit', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 0.9rem !important;
+    letter-spacing: 0.02em !important;
+    padding: 0.6rem 1.4rem !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 4px 15px rgba(0,194,168,0.2) !important;
 }}
 .stButton > button:hover, .stDownloadButton > button:hover, .stFormSubmitButton > button:hover {{
-    transform: translate(-1px, -1px);
-    box-shadow: 5px 5px 0 rgba(0,0,0,0.7) !important;
-    color: #0b0b12 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 8px 25px rgba(0,194,168,0.35) !important;
+    color: #000 !important;
 }}
-.stButton > button:active, .stFormSubmitButton > button:active {{
-    transform: translate(2px, 2px);
-    box-shadow: 1px 1px 0 rgba(0,0,0,0.7) !important;
+.stButton > button[kind="secondary"] {{
+    background: var(--surface2) !important;
+    color: var(--text) !important;
+    box-shadow: none !important;
+    border: 1px solid var(--border2) !important;
 }}
 
-/* ---- Tabs: sticker tags ---- */
-.stTabs [data-baseweb="tab-list"] {{
-    gap: 6px;
-    border-bottom: none !important;
-}}
+/* ---- Tabs ---- */
+.stTabs [data-baseweb="tab-list"] {{ gap: 4px; border-bottom: 1px solid var(--border) !important; }}
 .stTabs [data-baseweb="tab"] {{
-    font-family: 'Permanent Marker', cursive;
-    background: #1b1225;
-    border: 2px solid {NEON_CYAN};
+    font-family: 'Outfit', sans-serif;
+    font-weight: 600;
+    background: transparent;
     border-radius: 10px 10px 0 0;
-    color: #d8d8e2 !important;
+    color: var(--muted) !important;
     padding: 8px 16px !important;
 }}
 .stTabs [aria-selected="true"] {{
-    background: {NEON_CYAN} !important;
-    color: #0b0b12 !important;
-    box-shadow: 0 0 16px rgba(0,229,255,0.5);
+    background: var(--surface2) !important;
+    color: var(--teal) !important;
+    border-bottom: 2px solid var(--teal) !important;
 }}
 
-/* ---- Inputs ---- */
-.stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {{
-    background-color: #17101f !important;
-    color: #f0f0f5 !important;
-    border: 2px solid #3a2f45 !important;
-    border-radius: 8px !important;
+/* ---- Dataframes / forms ---- */
+.stDataFrame {{ border-radius: 12px !important; overflow: hidden !important; }}
+[data-testid="stForm"] {{
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 16px !important;
+    padding: 1.5rem !important;
 }}
-.stTextInput input:focus, .stNumberInput input:focus, .stTextArea textarea:focus {{
-    border-color: {NEON_CYAN} !important;
-    box-shadow: 0 0 10px rgba(0,229,255,0.35) !important;
+.stSuccess, .stError, .stWarning, .stInfo {{ border-radius: 10px !important; }}
+
+@keyframes fadeSlideUp {{
+    from {{ opacity: 0; transform: translateY(16px); }}
+    to   {{ opacity: 1; transform: translateY(0); }}
 }}
-div[data-baseweb="select"] > div {{
-    background-color: #17101f !important;
-    border: 2px solid #3a2f45 !important;
-    border-radius: 8px !important;
-}}
+.fade-in {{ animation: fadeSlideUp 0.45s ease forwards; }}
 </style>
 """
 
@@ -206,33 +286,20 @@ def inject_css():
     st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
 
-_SPRAY_UNDERLINE_SVG = f"""
-<svg viewBox="0 0 400 26" preserveAspectRatio="none" style="width:100%; max-width:420px; height:22px; display:block;">
-    <path d="M0,14 Q50,4 100,13 T200,12 T300,14 T400,11" stroke="{NEON_PINK}" stroke-width="5" fill="none" stroke-linecap="round"/>
-    <circle cx="55" cy="20" r="3.5" fill="{NEON_PINK}"/>
-    <circle cx="170" cy="21" r="2.5" fill="{NEON_CYAN}"/>
-    <circle cx="240" cy="19" r="4" fill="{NEON_YELLOW}"/>
-    <circle cx="330" cy="20" r="3" fill="{NEON_ORANGE}"/>
-</svg>
-"""
-
-
 def hero_title(text: str, tagline: str = ""):
-    """Big spray-paint style title with a drip/spray underline - use for
-    the landing/login screen and the main dashboard title."""
+    """Gradient-clipped headline - use for the landing/login screen and
+    the main dashboard title."""
     tagline_html = f'<div class="hero-tagline">{tagline}</div>' if tagline else ""
     st.markdown(
-        f'<div class="hero-title">{text}</div>'
-        f'<div class="hero-underline">{_SPRAY_UNDERLINE_SVG}</div>'
-        f'{tagline_html}',
+        f'<div class="fade-in hero-title">{text}</div>{tagline_html}',
         unsafe_allow_html=True,
     )
 
 
 def graffiti_divider():
-    """A spray-stroke divider - use instead of st.divider() for a
-    consistent graffiti feel between sections."""
-    st.markdown(f'<div class="graffiti-divider">{_SPRAY_UNDERLINE_SVG}</div>', unsafe_allow_html=True)
+    """A thin gradient section divider. (Name kept from the previous
+    theme so existing call sites don't need to change.)"""
+    st.markdown('<div class="graffiti-divider"></div>', unsafe_allow_html=True)
 
 
 def metric_card(label: str, value: str, sub: str = ""):
@@ -245,7 +312,7 @@ def metric_card(label: str, value: str, sub: str = ""):
 
 def _metric_card_html(label: str, value: str, sub: str = "") -> str:
     return (
-        f'<div class="metric-card">'
+        f'<div class="metric-card fade-in">'
         f'<div class="metric-label">{label}</div>'
         f'<div class="metric-value">{value}</div>'
         f'<div class="metric-sub">{sub}</div>'
