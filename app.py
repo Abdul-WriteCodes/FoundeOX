@@ -20,14 +20,17 @@ def check_password():
     if st.session_state.get("authenticated"):
         return True
 
-    hero_title("Vault🪎", tagline="Consulting + SaaS, tracked in one place")
-    pwd = st.text_input("Enter app password", type="password")
-    if st.button("Enter"):
-        if pwd == st.secrets["app_config"].get("app_password", ""):
-            st.session_state["authenticated"] = True
-            st.rerun()
-        else:
-            st.error("Incorrect password.")
+    col_l, col_mid, col_r = st.columns([1, 2, 1])
+    with col_mid:
+        hero_title("FOUNDER REVENUE OS", tagline="Consulting + SaaS, tracked in one place", center=True)
+        st.write("")
+        pwd = st.text_input("Enter app password", type="password")
+        if st.button("Enter", use_container_width=True):
+            if pwd == st.secrets["app_config"].get("app_password", ""):
+                st.session_state["authenticated"] = True
+                st.rerun()
+            else:
+                st.error("Incorrect password.")
     return False
 
 
