@@ -255,7 +255,34 @@ concurrent multi-user writes are where Sheets starts to strain.
 
 ---
 
-## 8. Extending it later
+## 8. Troubleshooting
+
+**`APIError [429]: Quota exceeded for quota metric 'Read requests'`**
+
+Google's Sheets API caps free-tier usage at roughly 60 read requests per
+minute per user. Every Streamlit widget interaction (a filter, an
+expander, a form submit) reruns the whole page script, and without
+caching that means several fresh API reads per click. The app caches
+each worksheet read for ~20 seconds (`utils/sheets.py`, `read_sheet()`)
+and invalidates that cache immediately after any write, so normal use
+shouldn't hit the limit. If you still see this error:
+- Wait ~60 seconds and reload — it's a rate limit, not a permanent block.
+- Use the **🔄 Refresh data** button in the sidebar instead of repeatedly
+  reloading the page.
+- If you're hammering it with rapid automated testing, that's the likely
+  cause — space out requests.
+
+**`StreamlitAPIException: Multiple Pages specified with URL pathname X`**
+
+Streamlit derives each page's URL from its filename. This fires when two
+files in `pages/` resolve to the same name — usually because old page
+files from a previous version of this app are still sitting in your repo
+alongside the current ones. Delete anything in `pages/` that isn't in
+the file list at the top of this README, commit, and push again.
+
+---
+
+## 9. Extending it later
 
 The code is structured so each future enhancement has an obvious home:
 

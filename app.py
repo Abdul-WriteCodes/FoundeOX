@@ -133,3 +133,7 @@ st.sidebar.caption(
     "Navigate using the pages above: Consulting Projects, Consulting Payments, "
     "SaaS Revenue, Expenses, Analytics, Settings."
 )
+if st.sidebar.button("🔄 Refresh data"):
+    sheets.refresh_data()
+    st.rerun()
+st.sidebar.caption("Data is cached for ~20s to stay well under Google's API rate limits — use Refresh if you just edited the Sheet directly.")
