@@ -1,7 +1,8 @@
-import plotly.express as px
 import streamlit as st
+from streamlit_echarts import st_echarts
 
 from utils import calculations as calc
+from utils import charts
 from utils import sheets
 from utils.styling import inject_css, metric_card, fmt_money
 
@@ -118,33 +119,31 @@ else:
     with left:
         st.subheader(f"Revenue by Stream ({base_currency})")
         by_stream = calc.revenue_by_stream_total(stream_monthly)
-        fig = px.pie(by_stream, names="stream", values="revenue", hole=0.45)
-        fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=340)
-        st.plotly_chart(fig, use_container_width=True)
+        opts = charts.donut_chart(by_stream["stream"].tolist(), by_stream["revenue"].round(2).tolist(), unit_label=base_currency)
+        st_echarts(options=opts, height="360px")
 
     with right:
         st.subheader(f"Monthly Revenue Trend, Combined ({base_currency})")
         combined = calc.combined_monthly_revenue(stream_monthly)
-        fig = px.bar(combined, x="month", y="revenue", labels={"month": "Month", "revenue": f"Revenue ({base_currency})"})
-        fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=340)
-        st.plotly_chart(fig, use_container_width=True)
+        opts = charts.bar_chart(combined["month"].tolist(), combined["revenue"].round(2).tolist(), axis_name=base_currency)
+        st_echarts(options=opts, height="360px")
 
     st.subheader(f"Revenue by Stream, by Month ({base_currency})")
-    fig = px.bar(
-        stream_monthly, x="month", y="revenue", color="stream",
-        labels={"month": "Month", "revenue": f"Revenue ({base_currency})", "stream": "Stream"},
-        barmode="stack",
-    )
-    fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=380)
-    st.plotly_chart(fig, use_container_width=True)
+    pivot = stream_monthly.pivot_table(index="month", columns="stream", values="revenue", aggfunc="sum").fillna(0).sort_index()
+    series_data = {stream: pivot[stream].round(2).tolist() for stream in pivot.columns}
+    opts = charts.stacked_bar_chart(pivot.index.tolist(), series_data, axis_name=base_currency, height="400px")
+    st_echarts(options=opts, height="400px")
 
     st.subheader(f"Profit Trend, Revenue vs. Expenses ({base_currency})")
     trend = calc.profit_trend(stream_monthly, expenses, rates, base_currency)
     if not trend.empty:
-        fig = px.line(trend, x="month", y=["revenue", "expense", "profit"], markers=True,
-                      labels={"month": "Month", "value": f"Amount ({base_currency})", "variable": "Series"})
-        fig.update_layout(margin=dict(l=10, r=10, t=10, b=10), height=340)
-        st.plotly_chart(fig, use_container_width=True)
+        series_data = {
+            "Revenue": trend["revenue"].round(2).tolist(),
+            "Expense": trend["expense"].round(2).tolist(),
+            "Profit": trend["profit"].round(2).tolist(),
+        }
+        opts = charts.multi_line_area_chart(trend["month"].tolist(), series_data, axis_name=base_currency, height="360px")
+        st_echarts(options=opts, height="360px")
     else:
         st.caption("Record some expenses to see this chart.")
 
