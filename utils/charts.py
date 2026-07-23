@@ -9,13 +9,13 @@ st_echarts(options=..., height=...). No custom JS formatters are used
 through axis names and chart titles instead, in plain text.
 """
 
-# Neon graffiti palette - matches utils/styling.py so charts feel like
-# part of the same visual identity, not a bolted-on default theme.
-PALETTE = ["#ff2e88", "#00e5ff", "#d4ff00", "#ff6a00", "#a259ff", "#39ff14", "#ff3860", "#00b4ff", "#ffd400", "#ff7edb"]
+# Matches utils/styling.py's teal/violet/amber accent system so charts
+# feel like part of the same dashboard, not a bolted-on default theme.
+PALETTE = ["#00C2A8", "#7B6CF6", "#F59E0B", "#F43F5E", "#10B981", "#38bdf8", "#f472b6", "#a3e635"]
 
-TEXT_COLOR = "#c9c9d6"
-GRID_LINE_COLOR = "rgba(201, 201, 214, 0.15)"
-FONT_FAMILY = "'Inter', 'Segoe UI', system-ui, sans-serif"
+TEXT_COLOR = "#94a3b8"
+GRID_LINE_COLOR = "rgba(148, 163, 184, 0.12)"
+FONT_FAMILY = "'Outfit', 'Inter', system-ui, sans-serif"
 
 
 def _gradient(color_from, color_to, vertical=True):
