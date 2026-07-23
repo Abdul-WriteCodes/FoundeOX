@@ -4,7 +4,7 @@ from streamlit_echarts import st_echarts
 from utils import calculations as calc
 from utils import charts
 from utils import sheets
-from utils.styling import inject_css, metrics_grid, fmt_money
+from utils.styling import inject_css, metrics_grid, fmt_money, hero_title, graffiti_divider
 
 st.set_page_config(
     page_title="Founder Revenue OS",
@@ -20,7 +20,7 @@ def check_password():
     if st.session_state.get("authenticated"):
         return True
 
-    st.title("💼 Founder Revenue OS")
+    hero_title("FOUNDER REVENUE OS", tagline="YOUR HUSTLE. YOUR NUMBERS. YOUR WALL.")
     pwd = st.text_input("Enter app password", type="password")
     if st.button("Enter"):
         if pwd == st.secrets["app_config"].get("app_password", ""):
@@ -76,7 +76,7 @@ enriched = calc.enrich_projects(projects, payments, rates, base_currency)
 stream_monthly = calc.stream_revenue_monthly(payments, projects, saas_monthly, saas_transactions, rates, base_currency)
 metrics = calc.dashboard_metrics(projects, payments, saas_monthly, saas_transactions, expenses, rates, base_currency)
 
-st.title("💼 Founder Revenue OS")
+hero_title("FOUNDER REVENUE OS", tagline="Every stream. One wall. Real numbers.")
 st.caption(
     f"Combined revenue across Research & Consulting and every SaaS product you're shipping. "
     f"All totals below are converted to your reporting currency, **{base_currency}**."
