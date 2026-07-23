@@ -29,6 +29,18 @@ CUSTOM_CSS = """
     color: #9ca3af;
     margin-top: 2px;
 }
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+}
+@media (max-width: 480px) {
+    .metrics-grid { gap: 8px; }
+    .metrics-grid .metric-card { padding: 12px 14px; }
+    .metrics-grid .metric-label { font-size: 0.68rem; }
+    .metrics-grid .metric-value { font-size: 1.15rem; }
+}
 .status-pill {
     display: inline-block;
     padding: 2px 10px;
@@ -48,14 +60,32 @@ def inject_css():
 
 
 def metric_card(label: str, value: str, sub: str = ""):
+    """Single card via st.markdown - fine inside st.columns for
+    desktop-oriented layouts. On mobile, prefer metrics_grid() below,
+    since st.columns always collapses to one-per-row on narrow screens
+    no matter how many columns you ask for."""
+    st.markdown(_metric_card_html(label, value, sub), unsafe_allow_html=True)
+
+
+def _metric_card_html(label: str, value: str, sub: str = "") -> str:
+    return (
+        f'<div class="metric-card">'
+        f'<div class="metric-label">{label}</div>'
+        f'<div class="metric-value">{value}</div>'
+        f'<div class="metric-sub">{sub}</div>'
+        f'</div>'
+    )
+
+
+def metrics_grid(items, columns: int = 2):
+    """Render a list of (label, value, sub) tuples as a real CSS grid in
+    a single st.markdown call. Unlike st.columns, this keeps N cards per
+    row on phones instead of stacking to one per row - the grid is plain
+    CSS, not a Streamlit layout primitive, so the browser's own narrow
+    viewport rules never override it."""
+    cards_html = "".join(_metric_card_html(label, value, sub) for label, value, sub in items)
     st.markdown(
-        f"""
-        <div class="metric-card">
-            <div class="metric-label">{label}</div>
-            <div class="metric-value">{value}</div>
-            <div class="metric-sub">{sub}</div>
-        </div>
-        """,
+        f'<div class="metrics-grid" style="grid-template-columns: repeat({columns}, 1fr);">{cards_html}</div>',
         unsafe_allow_html=True,
     )
 
