@@ -31,6 +31,30 @@ def _to_numeric(series):
     return pd.to_numeric(series, errors="coerce").fillna(0)
 
 
+def parse_date(value, fallback=None):
+    """Parse a 'YYYY-MM-DD' string (as stored in Sheets) back into a
+    date object for pre-filling st.date_input widgets on edit forms.
+    Falls back to today (or a given fallback) if the value is missing
+    or malformed, rather than raising and breaking the page."""
+    if fallback is None:
+        fallback = datetime.today().date()
+    try:
+        return datetime.strptime(str(value), "%Y-%m-%d").date()
+    except (ValueError, TypeError):
+        return fallback
+
+
+def safe_index(options, value, default=0):
+    """Index of `value` within `options` for pre-selecting a selectbox
+    on an edit form. Falls back to `default` if the stored value isn't
+    (or is no longer) one of the current options - e.g. a currency or
+    category that was later removed from Settings - instead of raising."""
+    try:
+        return list(options).index(value)
+    except (ValueError, TypeError):
+        return default
+
+
 # ---------------- Base currency + exchange rates ----------------
 
 def get_base_currency(settings: pd.DataFrame) -> str:

@@ -507,3 +507,35 @@ def fmt_currency(value, symbol="$"):
         return f"{symbol}{value:,.2f}"
     except (TypeError, ValueError):
         return f"{symbol}0.00"
+
+
+def confirm_delete(state_key: str, warning_text: str, button_label: str = "🗑️ Delete") -> bool:
+    """Two-step delete guard shared by every page's delete action.
+
+    First click just arms a confirmation prompt (stored in
+    st.session_state under state_key) and reruns - nothing is deleted
+    yet. Only a click on 'Yes, delete permanently' after that returns
+    True, which is the caller's cue to actually perform the delete.
+    'Cancel' disarms it. This exists so a single misclick can never
+    remove a Sheets row - Google Sheets deletes have no undo.
+
+    Returns True exactly once, on the turn the deletion should happen.
+    """
+    if not st.session_state.get(state_key):
+        if st.button(button_label, key=f"{state_key}_arm"):
+            st.session_state[state_key] = True
+            st.rerun()
+        return False
+
+    st.warning(warning_text)
+    dc1, dc2 = st.columns(2)
+    with dc1:
+        confirmed = st.button("✅ Yes, delete permanently", key=f"{state_key}_confirm", type="primary")
+    with dc2:
+        if st.button("Cancel", key=f"{state_key}_cancel"):
+            st.session_state.pop(state_key, None)
+            st.rerun()
+    if confirmed:
+        st.session_state.pop(state_key, None)
+        return True
+    return False
