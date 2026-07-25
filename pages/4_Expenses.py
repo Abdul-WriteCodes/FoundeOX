@@ -5,7 +5,7 @@ import streamlit as st
 from utils import calculations as calc
 from utils import sheets
 from utils.sheets import CONSULTING_STREAM, GENERAL_STREAM
-from utils.styling import inject_css, fmt_money
+from utils.styling import inject_css, fmt_money, confirm_delete
 
 st.set_page_config(page_title="Expenses — Founder Revenue OS", page_icon="🧾", layout="wide")
 inject_css()
@@ -103,13 +103,52 @@ with tab_list:
         )
 
         st.markdown("---")
+        st.markdown("**Edit an expense**")
+        edit_options = {
+            f"{r['expense_date']} — {r['category']} — {fmt_money(float(r['amount']), r['currency'])} ({r['expense_id']})": r["expense_id"]
+            for _, r in expenses.iterrows()
+        }
+        chosen_edit = st.selectbox("Select expense to edit", ["—"] + list(edit_options.keys()), key="edit_expense")
+        if chosen_edit != "—":
+            x_row = expenses[expenses["expense_id"] == edit_options[chosen_edit]].iloc[0]
+            with st.form(f"edit_expense_{x_row['expense_id']}"):
+                ec1, ec2 = st.columns(2)
+                with ec1:
+                    e_date = st.date_input("Expense Date", value=calc.parse_date(x_row["expense_date"]))
+                    e_category = st.selectbox(
+                        "Category", expense_categories, index=calc.safe_index(expense_categories, x_row["category"])
+                    )
+                    e_stream = st.selectbox(
+                        "Attribute to stream (optional)", stream_options,
+                        index=calc.safe_index(stream_options, x_row["stream"] or GENERAL_STREAM),
+                    )
+                with ec2:
+                    e_amount = st.number_input("Amount *", min_value=0.0, step=5.0, value=float(x_row["amount"]))
+                    e_currency = st.selectbox("Currency", currencies, index=calc.safe_index(currencies, x_row["currency"]))
+                e_description = st.text_area("Description", value=x_row["description"])
+
+                if st.form_submit_button("Save Changes", type="primary"):
+                    if e_amount <= 0:
+                        st.error("Amount must be greater than 0.")
+                    else:
+                        sheets.update_row(
+                            "Expenses", "expense_id", x_row["expense_id"],
+                            {"expense_date": str(e_date), "category": e_category, "stream": e_stream,
+                             "amount": e_amount, "currency": e_currency, "description": e_description},
+                        )
+                        st.toast("Expense updated", icon="✅")
+                        st.rerun()
+
+        st.markdown("---")
         st.markdown("**Delete an expense**")
         del_options = {
             f"{r['expense_date']} — {r['category']} — {fmt_money(float(r['amount']), r['currency'])} ({r['expense_id']})": r["expense_id"]
             for _, r in expenses.iterrows()
         }
         chosen = st.selectbox("Select expense to delete", ["—"] + list(del_options.keys()))
-        if chosen != "—" and st.button("🗑️ Delete Selected Expense"):
-            sheets.delete_row("Expenses", "expense_id", del_options[chosen])
-            st.toast("Expense deleted", icon="🗑️")
-            st.rerun()
+        if chosen != "—":
+            eid = del_options[chosen]
+            if confirm_delete(f"confirm_del_expense_{eid}", f"Delete this expense ({chosen})? This can't be undone.", button_label="🗑️ Delete Selected Expense"):
+                sheets.delete_row("Expenses", "expense_id", eid)
+                st.toast("Expense deleted", icon="🗑️")
+                st.rerun()

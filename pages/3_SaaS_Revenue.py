@@ -6,7 +6,7 @@ from streamlit_echarts import st_echarts
 from utils import calculations as calc
 from utils import charts
 from utils import sheets
-from utils.styling import inject_css, fmt_money, graffiti_divider
+from utils.styling import inject_css, fmt_money, graffiti_divider, confirm_delete
 
 st.set_page_config(page_title="SaaS Revenue — Founder Revenue OS", page_icon="🚀", layout="wide")
 inject_css()
@@ -109,15 +109,49 @@ with tab_monthly:
             view[["product", "month", "amount_display", "notes"]].rename(columns={"amount_display": "amount"}),
             use_container_width=True, hide_index=True,
         )
+        st.markdown("**Edit a monthly total**")
+        edit_options = {
+            f"{r['product']} — {r['month']} — {fmt_money(float(r['amount']), r['currency'])}": r["entry_id"]
+            for _, r in saas_monthly.iterrows()
+        }
+        chosen_edit = st.selectbox("Select monthly total to edit", ["—"] + list(edit_options.keys()), key="edit_monthly")
+        if chosen_edit != "—":
+            m_row = saas_monthly[saas_monthly["entry_id"] == edit_options[chosen_edit]].iloc[0]
+            with st.form(f"edit_monthly_{m_row['entry_id']}"):
+                ec1, ec2 = st.columns(2)
+                with ec1:
+                    e_product = st.selectbox("Product *", products, index=calc.safe_index(products, m_row["product"]))
+                    e_month = st.text_input("Month (YYYY-MM) *", value=m_row["month"])
+                with ec2:
+                    e_amount = st.number_input("Total Amount *", min_value=0.0, step=10.0, value=float(m_row["amount"]))
+                    e_currency = st.selectbox("Currency", currencies, index=calc.safe_index(currencies, m_row["currency"]))
+                e_notes = st.text_area("Notes", value=m_row["notes"])
+
+                if st.form_submit_button("Save Changes", type="primary"):
+                    if e_amount < 0:
+                        st.error("Amount can't be negative.")
+                    else:
+                        sheets.update_row(
+                            "SaaSMonthly", "entry_id", m_row["entry_id"],
+                            {"product": e_product, "month": e_month, "amount": e_amount,
+                             "currency": e_currency, "notes": e_notes},
+                        )
+                        st.toast("Monthly total updated", icon="✅")
+                        st.rerun()
+
+        st.markdown("---")
+        st.markdown("**Delete a monthly total**")
         del_options = {
             f"{r['product']} — {r['month']} — {fmt_money(float(r['amount']), r['currency'])}": r["entry_id"]
             for _, r in saas_monthly.iterrows()
         }
         chosen = st.selectbox("Select monthly total to delete", ["—"] + list(del_options.keys()), key="del_monthly")
-        if chosen != "—" and st.button("🗑️ Delete Selected Monthly Total"):
-            sheets.delete_row("SaaSMonthly", "entry_id", del_options[chosen])
-            st.toast("Monthly total deleted", icon="🗑️")
-            st.rerun()
+        if chosen != "—":
+            eid = del_options[chosen]
+            if confirm_delete(f"confirm_del_monthly_{eid}", f"Delete this monthly total ({chosen})? This can't be undone.", button_label="🗑️ Delete Selected Monthly Total"):
+                sheets.delete_row("SaaSMonthly", "entry_id", eid)
+                st.toast("Monthly total deleted", icon="🗑️")
+                st.rerun()
 
 with tab_txn:
     st.markdown("Use this to log an individual sale or subscription payment.")
@@ -172,12 +206,51 @@ with tab_txn:
             use_container_width=True, hide_index=True,
         )
 
+        st.markdown("**Edit a transaction**")
+        edit_options = {
+            f"{r['date']} — {r['product']} — {fmt_money(float(r['amount']), r['currency'])} ({r['transaction_id']})": r["transaction_id"]
+            for _, r in saas_transactions.iterrows()
+        }
+        chosen_edit = st.selectbox("Select transaction to edit", ["—"] + list(edit_options.keys()), key="edit_txn")
+        if chosen_edit != "—":
+            t_row = saas_transactions[saas_transactions["transaction_id"] == edit_options[chosen_edit]].iloc[0]
+            with st.form(f"edit_txn_{t_row['transaction_id']}"):
+                ec1, ec2 = st.columns(2)
+                with ec1:
+                    e_product = st.selectbox("Product *", products, index=calc.safe_index(products, t_row["product"]))
+                    e_date = st.date_input("Date", value=calc.parse_date(t_row["date"]))
+                    e_amount = st.number_input("Amount *", min_value=0.0, step=5.0, value=float(t_row["amount"]))
+                with ec2:
+                    e_currency = st.selectbox("Currency", currencies, index=calc.safe_index(currencies, t_row["currency"]))
+                    e_customer = st.text_input("Customer / Payer (optional)", value=t_row["customer"])
+                    e_payment_method = st.selectbox(
+                        "Payment Method", payment_methods, index=calc.safe_index(payment_methods, t_row["payment_method"])
+                    )
+                e_notes = st.text_area("Notes", value=t_row["notes"])
+
+                if st.form_submit_button("Save Changes", type="primary"):
+                    if e_amount <= 0:
+                        st.error("Amount must be greater than 0.")
+                    else:
+                        sheets.update_row(
+                            "SaaSTransactions", "transaction_id", t_row["transaction_id"],
+                            {"product": e_product, "date": str(e_date), "amount": e_amount,
+                             "currency": e_currency, "customer": e_customer,
+                             "payment_method": e_payment_method, "notes": e_notes},
+                        )
+                        st.toast("Transaction updated", icon="✅")
+                        st.rerun()
+
+        st.markdown("---")
+        st.markdown("**Delete a transaction**")
         del_options = {
             f"{r['date']} — {r['product']} — {fmt_money(float(r['amount']), r['currency'])} ({r['transaction_id']})": r["transaction_id"]
             for _, r in saas_transactions.iterrows()
         }
         chosen = st.selectbox("Select transaction to delete", ["—"] + list(del_options.keys()), key="del_txn")
-        if chosen != "—" and st.button("🗑️ Delete Selected Transaction"):
-            sheets.delete_row("SaaSTransactions", "transaction_id", del_options[chosen])
-            st.toast("Transaction deleted", icon="🗑️")
-            st.rerun()
+        if chosen != "—":
+            tid = del_options[chosen]
+            if confirm_delete(f"confirm_del_txn_{tid}", f"Delete this transaction ({chosen})? This can't be undone.", button_label="🗑️ Delete Selected Transaction"):
+                sheets.delete_row("SaaSTransactions", "transaction_id", tid)
+                st.toast("Transaction deleted", icon="🗑️")
+                st.rerun()
