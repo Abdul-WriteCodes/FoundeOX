@@ -1,5 +1,6 @@
 from datetime import date
 
+import pandas as pd
 import streamlit as st
 from streamlit_echarts import st_echarts
 
@@ -47,6 +48,29 @@ with tab_overview:
             f"treated as 1:1 with {base_currency} below — fix in Settings → Exchange Rates."
         )
 
+    shadowed = calc.shadowed_saas_periods(saas_monthly, saas_transactions, rates, base_currency)
+    if not shadowed.empty:
+        with st.expander(
+            f"⚠️ {len(shadowed)} product+month(s) have both a manual total AND individual "
+            f"transactions — the manual total is what's shown below, transactions are ignored",
+            expanded=False,
+        ):
+            st.caption(
+                "This is why editing or deleting a transaction in one of these periods doesn't "
+                "change the numbers on this page: the manual total overrides it completely. "
+                "If you want transactions to be the source of truth again, delete the manual "
+                "total for that product+month in the **Log Monthly Total** tab."
+            )
+            shadow_display = shadowed.copy()
+            shadow_display["manual_total"] = shadow_display["manual_total"].map(lambda v: fmt_money(v, base_currency))
+            shadow_display["transaction_sum"] = shadow_display["transaction_sum"].map(lambda v: fmt_money(v, base_currency))
+            st.dataframe(
+                shadow_display.rename(columns={
+                    "manual_total": f"Manual total (shown)", "transaction_sum": "Transaction sum (ignored)",
+                }),
+                use_container_width=True, hide_index=True,
+            )
+
     reconciled = calc.saas_reconciled_monthly(saas_monthly, saas_transactions, rates, base_currency)
     if reconciled.empty:
         st.info("No SaaS revenue logged yet — use the tabs above to add a monthly total or a transaction.")
@@ -90,11 +114,14 @@ with tab_monthly:
 
         submitted = st.form_submit_button("Save Monthly Total", type="primary")
         if submitted:
+            month_clean = month.strip()
             if amount < 0:
                 st.error("Amount can't be negative.")
+            elif not month_clean:
+                st.error("Month is required.")
             else:
-                existing = saas_monthly[(saas_monthly["product"] == product) & (saas_monthly["month"] == month)]
-                sheets.upsert_saas_monthly(product, month, amount, currency, notes)
+                existing = saas_monthly[(saas_monthly["product"] == product) & (saas_monthly["month"] == month_clean)]
+                sheets.upsert_saas_monthly(product, month_clean, amount, currency, notes)
                 if not existing.empty:
                     st.toast(f"Updated {product} total for {month}", icon="✅")
                 else:
@@ -128,12 +155,15 @@ with tab_monthly:
                 e_notes = st.text_area("Notes", value=m_row["notes"])
 
                 if st.form_submit_button("Save Changes", type="primary"):
+                    e_month_clean = e_month.strip()
                     if e_amount < 0:
                         st.error("Amount can't be negative.")
+                    elif not e_month_clean:
+                        st.error("Month is required.")
                     else:
                         sheets.update_row(
                             "SaaSMonthly", "entry_id", m_row["entry_id"],
-                            {"product": e_product, "month": e_month, "amount": e_amount,
+                            {"product": e_product, "month": e_month_clean, "amount": e_amount,
                              "currency": e_currency, "notes": e_notes},
                         )
                         st.toast("Monthly total updated", icon="✅")
@@ -250,6 +280,19 @@ with tab_txn:
         chosen = st.selectbox("Select transaction to delete", ["—"] + list(del_options.keys()), key="del_txn")
         if chosen != "—":
             tid = del_options[chosen]
+            sel_row = saas_transactions[saas_transactions["transaction_id"] == tid].iloc[0]
+            sel_month = pd.to_datetime(sel_row["date"], errors="coerce")
+            sel_month = sel_month.strftime("%Y-%m") if pd.notna(sel_month) else None
+            has_manual_override = sel_month is not None and not saas_monthly[
+                (saas_monthly["product"] == sel_row["product"]) & (saas_monthly["month"] == sel_month)
+            ].empty
+            if has_manual_override:
+                st.info(
+                    f"Heads up: **{sel_row['product']}** has a manual monthly total saved for "
+                    f"**{sel_month}**, which overrides the transaction sum in Overview. Deleting "
+                    f"this transaction won't change any totals unless you also update or delete "
+                    f"that monthly total in the **Log Monthly Total** tab."
+                )
             if confirm_delete(f"confirm_del_txn_{tid}", f"Delete this transaction ({chosen})? This can't be undone.", button_label="🗑️ Delete Selected Transaction"):
                 sheets.delete_row("SaaSTransactions", "transaction_id", tid)
                 st.toast("Transaction deleted", icon="🗑️")
