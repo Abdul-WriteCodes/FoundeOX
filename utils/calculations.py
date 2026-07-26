@@ -228,6 +228,29 @@ def saas_total_by_product(saas_monthly: pd.DataFrame, saas_transactions: pd.Data
     return reconciled.groupby("product")["revenue"].sum().reset_index().sort_values("revenue", ascending=False)
 
 
+def shadowed_saas_periods(saas_monthly: pd.DataFrame, saas_transactions: pd.DataFrame,
+                           rates: dict, base: str) -> pd.DataFrame:
+    """Product+months where BOTH a manual monthly total AND individual
+    transactions exist. In saas_reconciled_monthly the manual total wins
+    and the transaction sum is dropped entirely from every total/chart -
+    which means deleting or editing a transaction in one of these
+    periods will NOT change anything in the Overview, since the manual
+    figure is untouched. That's silent and easy to mistake for stale
+    data ('I deleted it but the amount is still there'), so surface it
+    explicitly instead of leaving it invisible."""
+    tx_monthly = saas_transactions_monthly(saas_transactions, rates, base)
+    if saas_monthly.empty or tx_monthly.empty:
+        return pd.DataFrame(columns=["product", "month", "manual_total", "transaction_sum"])
+
+    m = saas_monthly.copy()
+    m["amount"] = _to_numeric(m["amount"])
+    m["manual_total"] = _convert(m["amount"], m["currency"], rates, base)
+    manual = m[["product", "month", "manual_total"]]
+
+    overlap = manual.merge(tx_monthly.rename(columns={"revenue": "transaction_sum"}), on=["product", "month"])
+    return overlap.sort_values(["product", "month"])
+
+
 # ---------------- Combined streams ----------------
 
 def stream_revenue_monthly(payments: pd.DataFrame, projects: pd.DataFrame, saas_monthly: pd.DataFrame,
