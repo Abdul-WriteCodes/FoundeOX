@@ -127,15 +127,36 @@ def stacked_bar_chart(categories, series_data: dict, axis_name="", height="380px
     """series_data: {series_name: [values aligned to categories]}. Used
     for revenue-by-stream-by-month."""
     palette = colors or PALETTE
+    names = list(series_data.keys())
     series = []
     for i, (name, values) in enumerate(series_data.items()):
+        is_top = (i == len(names) - 1)
+        c = palette[i % len(palette)]
+        item_style = {
+            "borderRadius": [6, 6, 0, 0] if is_top else 0,
+            "color": _gradient(c, c + "AA") if is_top else c,
+        }
         series.append({
             "name": name,
             "type": "bar",
             "stack": "total",
             "data": values,
             "barMaxWidth": 42,
-            "itemStyle": {"color": palette[i % len(palette)], "borderRadius": 0},
+            "itemStyle": item_style,
+            "label": {
+                "show": True,
+                "position": "inside",
+                "color": "#0f172a",
+                "fontFamily": FONT_FAMILY,
+                "fontSize": 11,
+                "fontWeight": 600,
+                # "{c}" is the raw value for this data point. ECharts
+                # auto-hides the label if the segment is too thin to fit
+                # the text, so tiny slivers just show nothing rather than
+                # overflowing into neighboring segments.
+                "formatter": "{c}",
+            },
+            "labelLayout": {"hideOverlap": True},
         })
     return {
         "backgroundColor": "transparent",
