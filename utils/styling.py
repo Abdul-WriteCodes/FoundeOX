@@ -309,6 +309,60 @@ div[data-baseweb="select"] > div {{
     border-radius: 10px !important;
 }}
 
+/* ---- Login screen: scattered currency/vault icon backdrop ---- */
+.login-bg {{
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+}}
+.login-bg-icon {{
+    position: absolute;
+    opacity: 0.09;
+    filter: grayscale(1) brightness(1.6);
+    animation: loginIconFloat 7s ease-in-out infinite;
+}}
+@keyframes loginIconFloat {{
+    0%, 100% {{ transform: translateY(0) rotate(var(--rot, 0deg)); }}
+    50% {{ transform: translateY(-16px) rotate(var(--rot, 0deg)); }}
+}}
+
+/* ---- Login screen: glassy centered card (st.container(key="login_shell")) ---- */
+.st-key-login_shell {{
+    position: relative;
+    z-index: 2;
+    max-width: 420px;
+    margin: 6vh auto 0 auto !important;
+    padding: 2.4rem 2.2rem 2.2rem 2.2rem;
+    background: linear-gradient(160deg, rgba(13,17,23,0.92), rgba(17,24,39,0.92));
+    border: 1px solid var(--border2);
+    border-radius: 22px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,194,168,0.06);
+    backdrop-filter: blur(14px);
+}}
+@media (max-width: 480px) {{
+    .st-key-login_shell {{ margin: 4vh 1rem 0 1rem !important; padding: 2rem 1.4rem; }}
+}}
+.login-badge {{
+    width: 62px; height: 62px;
+    margin: 0 auto 14px auto;
+    border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.9rem;
+    background: linear-gradient(135deg, {TEAL}25, {VIOLET}25);
+    border: 1px solid var(--border2);
+    box-shadow: 0 0 24px rgba(0,194,168,0.18);
+}}
+.login-helper {{
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    margin-top: 14px;
+}}
+
 /* ---- Buttons ---- */
 .stButton > button, .stDownloadButton > button, .stFormSubmitButton > button {{
     background: linear-gradient(135deg, var(--teal), #00a896) !important;
@@ -611,6 +665,35 @@ def fmt_currency(value, symbol="$"):
         return f"{symbol}{value:,.2f}"
     except (TypeError, ValueError):
         return f"{symbol}0.00"
+
+
+def login_background():
+    """Scattered, low-opacity currency/vault icons behind the login card -
+    purely decorative, fixed to the viewport. Call once at the top of the
+    login page, before the card content."""
+    icons = [
+        ("🪎", 6, 8, 2.6, "-14deg", 0.0),
+        ("💰", 82, 14, 3.2, "10deg", 0.8),
+        ("🪙", 12, 68, 2.4, "8deg", 1.6),
+        ("💷", 88, 62, 2.8, "-8deg", 0.4),
+        ("💶", 48, 6, 2.2, "6deg", 1.2),
+        ("🪙", 74, 84, 2.0, "-12deg", 2.0),
+        ("💰", 4, 42, 2.0, "12deg", 2.4),
+        ("💷", 40, 90, 2.4, "4deg", 1.0),
+        ("💶", 92, 38, 2.0, "-6deg", 1.8),
+        ("🪎", 60, 46, 1.8, "16deg", 2.8),
+    ]
+    spans = "".join(
+        f'<span class="login-bg-icon" style="left:{x}%; top:{y}%; '
+        f'font-size:{size}rem; --rot:{rot}; animation-delay:{delay}s;">{icon}</span>'
+        for icon, x, y, size, rot, delay in icons
+    )
+    st.markdown(f'<div class="login-bg">{spans}</div>', unsafe_allow_html=True)
+
+
+def login_badge(icon: str = "🪎"):
+    """Centered circular icon badge shown above the login headline."""
+    st.markdown(f'<div class="login-badge">{icon}</div>', unsafe_allow_html=True)
 
 
 def sidebar_brand(title: str = "VaultX", sub: str = "Consulting + SaaS", icon: str = "🪎"):
