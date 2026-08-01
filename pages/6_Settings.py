@@ -124,7 +124,7 @@ for tab, (setting_type, label) in zip(tabs[1:], setting_groups):
 graffiti_divider()
 st.subheader("About")
 st.markdown(
-    "**Founder Revenue OS** — your personal business operating system, tracking "
+    "**VaultX** — your personal business operating system, tracking "
     "Research & Consulting alongside every SaaS product you're shipping. "
     "Built with Streamlit + Google Sheets. Data lives entirely in your connected "
     "Google Sheet — nothing is stored elsewhere."
