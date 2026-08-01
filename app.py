@@ -20,8 +20,8 @@ from utils.styling import (
 _sidebar_state = "expanded" if st.session_state.get("authenticated") else "collapsed"
 
 st.set_page_config(
-    page_title="Founder Revenue OS",
-    page_icon="💼",
+    page_title="VaultX",
+    page_icon="🪎",
     layout="wide",
     initial_sidebar_state=_sidebar_state,
 )
@@ -33,7 +33,7 @@ def render_login():
     col_l, col_mid, col_r = st.columns([1, 2, 1])
     with col_mid:
         st.write("")
-        hero_title("FOUNDER REVENUE OS", tagline="Consulting + SaaS, tracked in one place", center=True)
+        hero_title("VAULTX", tagline="Consulting + SaaS, tracked in one place", center=True)
         st.write("")
         pwd = st.text_input("Enter app password", type="password")
         if st.button("Enter", use_container_width=True):
@@ -87,7 +87,7 @@ def render_dashboard():
     stream_monthly = calc.stream_revenue_monthly(payments, projects, saas_monthly, saas_transactions, rates, base_currency)
     metrics = calc.dashboard_metrics(projects, payments, saas_monthly, saas_transactions, expenses, rates, base_currency)
 
-    hero_title("FOUNDER REVENUE OS", tagline="Every stream, one dashboard")
+    hero_title("VAULTX", tagline="Every stream, one dashboard")
     st.caption(
         f"Combined revenue across Research & Consulting and every SaaS product you're shipping. "
         f"All totals below are converted to your reporting currency, **{base_currency}**."
