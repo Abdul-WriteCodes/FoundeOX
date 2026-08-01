@@ -6,7 +6,6 @@ from utils import calculations as calc
 from utils import sheets
 from utils.styling import inject_css, fmt_money, confirm_delete
 
-st.set_page_config(page_title="Consulting Payments — Founder Revenue OS", page_icon="💳", layout="wide")
 inject_css()
 
 if not st.session_state.get("authenticated"):

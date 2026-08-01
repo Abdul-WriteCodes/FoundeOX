@@ -7,7 +7,6 @@ from utils import sheets
 from utils.sheets import CONSULTING_STREAM, GENERAL_STREAM
 from utils.styling import inject_css, fmt_money, confirm_delete
 
-st.set_page_config(page_title="Expenses — Founder Revenue OS", page_icon="🧾", layout="wide")
 inject_css()
 
 if not st.session_state.get("authenticated"):

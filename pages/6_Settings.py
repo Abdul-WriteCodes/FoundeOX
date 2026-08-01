@@ -4,7 +4,6 @@ from utils import calculations as calc
 from utils import sheets
 from utils.styling import inject_css, graffiti_divider
 
-st.set_page_config(page_title="Settings — Founder Revenue OS", page_icon="⚙️", layout="wide")
 inject_css()
 
 if not st.session_state.get("authenticated"):

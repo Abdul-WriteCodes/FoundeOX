@@ -6,7 +6,6 @@ from utils import charts
 from utils import sheets
 from utils.styling import inject_css, stat_list, fmt_money, graffiti_divider
 
-st.set_page_config(page_title="Analytics — Founder Revenue OS", page_icon="📊", layout="wide")
 inject_css()
 
 if not st.session_state.get("authenticated"):
