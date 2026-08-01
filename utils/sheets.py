@@ -1,5 +1,5 @@
 """
-Google Sheets data layer for Founder Revenue OS.
+Google Sheets data layer for VaultX.
 
 Revenue model:
 - "Research & Consulting" is tracked as client Projects + Payments
