@@ -613,7 +613,7 @@ def fmt_currency(value, symbol="$"):
         return f"{symbol}0.00"
 
 
-def sidebar_brand(title: str = "Founder Revenue OS", sub: str = "Consulting + SaaS", icon: str = "💼"):
+def sidebar_brand(title: str = "VaultX", sub: str = "Consulting + SaaS", icon: str = "🪎"):
     """Small branded header pinned above the page list in the sidebar -
     call once, right after st.navigation() is built, so every
     authenticated page gets it via the shared sidebar chrome."""
