@@ -13,6 +13,8 @@ from utils.styling import (
     graffiti_divider,
     sidebar_brand,
     sidebar_status,
+    login_background,
+    login_badge,
 )
 
 # Sidebar starts collapsed on the login screen (nothing to navigate yet)
@@ -30,18 +32,19 @@ inject_css()
 
 
 def render_login():
-    col_l, col_mid, col_r = st.columns([1, 2, 1])
-    with col_mid:
-        st.write("")
+    login_background()
+    with st.container(key="login_shell"):
+        login_badge("🪎")
         hero_title("VAULTX", tagline="Consulting + SaaS, tracked in one place", center=True)
         st.write("")
-        pwd = st.text_input("Enter app password", type="password")
+        pwd = st.text_input("Enter app password", type="password", label_visibility="collapsed", placeholder="Enter app password")
         if st.button("Enter", use_container_width=True):
             if pwd == st.secrets["app_config"].get("app_password", ""):
                 st.session_state["authenticated"] = True
                 st.rerun()
             else:
                 st.error("Incorrect password.")
+        st.markdown('<div class="login-helper">🔒 Private — access is restricted to you</div>', unsafe_allow_html=True)
 
 
 def render_dashboard():
