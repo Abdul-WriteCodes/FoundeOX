@@ -351,6 +351,110 @@ div[data-baseweb="select"] > div {{
     border-bottom: 2px solid var(--teal) !important;
 }}
 
+/* ---- Sidebar navigation (st.navigation) ---- */
+[data-testid="stSidebar"] > div:first-child {{
+    padding-top: 0.5rem;
+}}
+.sidebar-brand {{
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 6px 16px 6px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+}}
+.sidebar-brand-icon {{
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.15rem;
+    background: linear-gradient(135deg, {TEAL}30, {VIOLET}30);
+    border: 1px solid var(--border2);
+    flex-shrink: 0;
+}}
+.sidebar-brand-text {{ line-height: 1.25; }}
+.sidebar-brand-title {{
+    font-family: 'Outfit', sans-serif;
+    font-weight: 800;
+    font-size: 0.92rem;
+    color: var(--text);
+}}
+.sidebar-brand-sub {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}}
+
+[data-testid="stSidebarNav"], [data-testid="stSidebarNavItems"] {{
+    padding-top: 4px !important;
+}}
+[data-testid="stSidebarNavItems"] {{
+    gap: 2px;
+}}
+/* Section headings streamlit renders for grouped st.navigation pages */
+[data-testid="stSidebarNavSeparator"],
+[data-testid="stSidebarNav"] p {{
+    font-family: 'JetBrains Mono', monospace !important;
+    font-size: 0.66rem !important;
+    color: var(--muted) !important;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin: 14px 0 4px 10px !important;
+    font-weight: 600 !important;
+}}
+[data-testid="stSidebarNavLink"] {{
+    border-radius: 10px !important;
+    margin: 1px 4px !important;
+    transition: background 0.15s ease, color 0.15s ease;
+}}
+[data-testid="stSidebarNavLink"]:hover {{
+    background: var(--surface2) !important;
+}}
+[data-testid="stSidebarNavLink"] span {{
+    font-family: 'Outfit', sans-serif !important;
+    font-size: 0.86rem !important;
+    color: var(--muted) !important;
+    font-weight: 500 !important;
+}}
+[data-testid="stSidebarNavLink"][aria-current="page"] {{
+    background: linear-gradient(135deg, {TEAL}22, {VIOLET}14) !important;
+    border: 1px solid rgba(0,194,168,0.25) !important;
+}}
+[data-testid="stSidebarNavLink"][aria-current="page"] span {{
+    color: var(--text) !important;
+    font-weight: 700 !important;
+}}
+
+.sidebar-footer {{
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}}
+.sidebar-status {{
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: {GREEN};
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+}}
+.sidebar-status-dot {{
+    width: 7px; height: 7px; border-radius: 50%;
+    background: {GREEN};
+    box-shadow: 0 0 6px {GREEN};
+}}
+.sidebar-caption {{
+    font-size: 0.72rem;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 8px;
+}}
+
 /* ---- Dataframes / forms ---- */
 .stDataFrame {{ border-radius: 12px !important; overflow: hidden !important; }}
 [data-testid="stForm"] {{
@@ -507,6 +611,30 @@ def fmt_currency(value, symbol="$"):
         return f"{symbol}{value:,.2f}"
     except (TypeError, ValueError):
         return f"{symbol}0.00"
+
+
+def sidebar_brand(title: str = "Founder Revenue OS", sub: str = "Consulting + SaaS", icon: str = "💼"):
+    """Small branded header pinned above the page list in the sidebar -
+    call once, right after st.navigation() is built, so every
+    authenticated page gets it via the shared sidebar chrome."""
+    st.sidebar.markdown(
+        f'<div class="sidebar-brand">'
+        f'<div class="sidebar-brand-icon">{icon}</div>'
+        f'<div class="sidebar-brand-text">'
+        f'<div class="sidebar-brand-title">{title}</div>'
+        f'<div class="sidebar-brand-sub">{sub}</div>'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
+
+
+def sidebar_status(label: str = "Connected to Google Sheets"):
+    """Small glowing status row for the bottom of the sidebar, replacing
+    a plain st.sidebar.success() call."""
+    st.sidebar.markdown(
+        f'<div class="sidebar-status"><span class="sidebar-status-dot"></span>{label}</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def confirm_delete(state_key: str, warning_text: str, button_label: str = "🗑️ Delete") -> bool:
