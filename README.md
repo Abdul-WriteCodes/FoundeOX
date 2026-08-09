@@ -23,7 +23,7 @@ VaultX is python-first and built with Streamlit + Google Sheet to mirror a produ
 ---
 ## 🔗 Live System
 
-👉 **[Try the Live App Here](https://vaultx.streamlit.app/)**
+👉 **[Try the Live App Here](https://vaultxz.streamlit.app/)**
 
 
 
