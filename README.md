@@ -1,4 +1,9 @@
 # VaultX 🪎
+<p align="center">
+  <img src="assets/Xe.jpg" alt="CaptAI Logo" style="width:100%; max-width:800px;" />
+</p>
+
+
 
 An operating system for tracking revenue across Monetized SaaS Products and Earnings from Research & Consulting
 
