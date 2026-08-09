@@ -70,6 +70,100 @@ the app creates and seeds them automatically on first run (see step 6).
 > `Expenses`, `Settings`. It also seeds `Settings` with default service
 > categories, currencies, expense categories, acquisition sources,
 > product names, a base currency, and placeholder exchange rates.
+>
+> You don't need to create these tabs or type headers yourself — this is
+> just so you know what to expect when you open the sheet after first run.
+> The exact structure is below in case you want to inspect the data
+> directly or write your own queries against it.
+
+### 4.3 Worksheet structure (auto-created)
+
+Each worksheet is a flat table with the columns below, in this exact
+order (defined in `utils/sheets.py`, `SHEET_SCHEMAS`):
+
+**`Projects`** — one row per client engagement
+| Column | Notes |
+|---|---|
+| `project_id` | e.g. `PRJ-A1B2C3D4` |
+| `client_name` | |
+| `project_title` | |
+| `service_category` | from Settings `service_category` values |
+| `project_value` | total agreed value, in `currency` |
+| `currency` | e.g. `USD`, `NGN`, `GBP`, `EUR` |
+| `start_date`, `due_date` | `YYYY-MM-DD` |
+| `project_status` | free text, e.g. In Progress / Completed |
+| `payment_status` | derived: Unpaid / Partial / Paid |
+| `acquisition_source` | from Settings `acquisition_source` values |
+| `notes` | |
+| `created_at` | ISO timestamp, set on creation |
+
+**`Payments`** — one row per payment against a project
+| Column | Notes |
+|---|---|
+| `payment_id` | e.g. `PAY-A1B2C3D4` |
+| `project_id` | foreign key into `Projects` |
+| `payment_date` | `YYYY-MM-DD` |
+| `amount` | in the parent project's currency (not stored here) |
+| `payment_method` | |
+| `transaction_reference` | |
+| `notes` | |
+| `created_at` | |
+
+**`SaaSMonthly`** — one quick manual revenue total per product per month
+| Column | Notes |
+|---|---|
+| `entry_id` | e.g. `SM-A1B2C3D4` |
+| `product` | from Settings `product` values |
+| `month` | `YYYY-MM` |
+| `amount` | |
+| `currency` | |
+| `notes` | |
+| `created_at` | |
+
+One row per product+month — re-saving the same product/month overwrites
+the existing row instead of duplicating it.
+
+**`SaaSTransactions`** — individual SaaS sales/subscription payments
+| Column | Notes |
+|---|---|
+| `transaction_id` | e.g. `TXN-A1B2C3D4` |
+| `product` | |
+| `date` | `YYYY-MM-DD` |
+| `amount` | |
+| `currency` | |
+| `customer` | |
+| `payment_method` | |
+| `notes` | |
+| `created_at` | |
+
+If a `SaaSMonthly` total exists for a product+month, it's treated as
+authoritative for that period and the matching `SaaSTransactions` rows
+are excluded from totals (to avoid double-counting) — see
+`saas_reconciled_monthly()` in `utils/calculations.py`.
+
+**`Expenses`**
+| Column | Notes |
+|---|---|
+| `expense_id` | e.g. `EXP-A1B2C3D4` |
+| `expense_date` | `YYYY-MM-DD` |
+| `category` | from Settings `expense_category` values |
+| `stream` | optional: a product name, `Research & Consulting`, or blank/`General/Overhead` |
+| `amount` | |
+| `currency` | |
+| `description` | |
+| `created_at` | |
+
+**`Settings`** — key/value config, not a data table
+| Column | Notes |
+|---|---|
+| `setting_type` | one of: `service_category`, `currency`, `expense_category`, `acquisition_source`, `product`, `base_currency`, `exchange_rate` |
+| `value` | for most types, the plain value (e.g. `NGN`); for `exchange_rate`, stored as `CODE=rate` (e.g. `NGN=0.00062`), meaning 1 unit of that currency = `rate` units of `base_currency` |
+
+`base_currency` and `exchange_rate` rows drive all cross-project /
+cross-stream totals — every amount is converted into `base_currency`
+before summing, never summed raw across currencies. There's no live FX
+feed, so exchange rates must be kept up to date manually via the
+**Settings** page in the app.
 
 ---
 
