@@ -1,4 +1,4 @@
-# VaultX 🪎
+# Vaultx 🪎
 <p align="center">
   <img src="assets/Xe.jpg" alt="CaptAI Logo" style="width:100%; max-width:800px;" />
 </p>
