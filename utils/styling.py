@@ -330,19 +330,26 @@ div[data-baseweb="select"] > div {{
 
 /* ---- Login screen: glassy centered card (st.container(key="login_shell")) ---- */
 .st-key-login_shell {{
-    position: relative;
+    position: fixed;
+    top: 6vh;
+    left: 50%;
+    transform: translateX(-50%);
     z-index: 2;
+    width: 100%;
     max-width: 420px;
-    margin: 6vh auto 0 auto !important;
+    max-height: 88vh;
+    overflow-y: auto;
+    margin: 0 !important;
     padding: 2.4rem 2.2rem 2.2rem 2.2rem;
     background: linear-gradient(160deg, rgba(13,17,23,0.92), rgba(17,24,39,0.92));
     border: 1px solid var(--border2);
     border-radius: 22px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,194,168,0.06);
     backdrop-filter: blur(14px);
+    box-sizing: border-box;
 }}
 @media (max-width: 480px) {{
-    .st-key-login_shell {{ margin: 4vh 1rem 0 1rem !important; padding: 2rem 1.4rem; }}
+    .st-key-login_shell {{ top: 4vh; width: calc(100% - 2rem); padding: 2rem 1.4rem; }}
 }}
 .login-badge {{
     width: 62px; height: 62px;
